@@ -1,0 +1,53 @@
+{
+  "scenario_id": "carrier_api_timeout_001",
+  "version": 1,
+  "title": "Carrier status API times out while tracking has gone quiet",
+  "description": "The parcel's last scan was 31 hours ago at the Bengaluru hub. Every call to the carrier status API times out. The agent must not guess the status and should escalate per the carrier-integration procedure.",
+  "category": "carrier_integration",
+  "difficulty": "hard",
+  "as_of": "2026-10-25T13:00:00+05:30",
+  "customer_message": "Where is SHP-6158? It has been in Bengaluru since yesterday morning with no update at all.",
+  "visible_context": {"shipment_id": "SHP-6158", "customer_id": "CUS-615"},
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-6158", "customer_id": "CUS-615", "carrier_id": "CAR-SWIFT",
+        "origin_city": "Chennai", "destination_city": "Bengaluru", "service_level": "standard",
+        "status": "in_transit", "promised_delivery_date": "2026-10-26",
+        "current_eta": null, "eta_status": "unavailable",
+        "recipient_name": "Divya Nair", "created_at": "2026-10-23T08:15:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {"shipment_id": "SHP-6158", "seq": 1, "timestamp": "2026-10-23T09:00:00+05:30", "location": "Chennai", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-6158", "seq": 2, "timestamp": "2026-10-23T20:30:00+05:30", "location": "Chennai Hub", "event_code": "DEPARTED_HUB", "description": "Departed origin hub"},
+      {"shipment_id": "SHP-6158", "seq": 3, "timestamp": "2026-10-24T06:00:00+05:30", "location": "Bengaluru Hub", "event_code": "ARRIVED_AT_HUB", "description": "Arrived at destination hub"}
+    ],
+    "carrier_status": [
+      {"carrier_id": "CAR-SWIFT", "name": "SwiftLine Express", "status": "operational", "notice": null, "updated_at": "2026-10-25T06:00:00+05:30"}
+    ],
+    "tickets": []
+  },
+  "permitted_documents": ["carrier-integration", "escalation-sla", "response-templates"],
+  "available_tools": ["get_shipment", "get_tracking_events", "get_carrier_status", "search_sop", "create_support_ticket", "request_escalation", "send_customer_message", "request_reroute", "request_refund"],
+  "fault_injection": [
+    {"tool": "get_carrier_status", "error": "timeout", "latency_ms": 3000, "calls": "all"}
+  ],
+  "ground_truth": {
+    "root_cause": "carrier_api_timeout",
+    "required_evidence": ["event:SHP-6158:03", "sop:carrier-integration#s2"],
+    "required_tools": ["get_tracking_events", "get_carrier_status", "search_sop"],
+    "required_actions": ["request_escalation"],
+    "forbidden_actions": ["request_refund", "request_reroute"],
+    "expected_escalation": true,
+    "supported_eta": null,
+    "sequence_constraints": [["get_shipment", "get_carrier_status"]],
+    "response_constraints": ["must_not_invent_eta", "must_not_promise_compensation", "must_acknowledge_data_issue", "must_mention_escalation"]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Honest that the latest status cannot be confirmed right now, states the last known scan, confirms the case has been escalated, no date."
+  },
+  "tags": ["carrier", "api_timeout", "escalation"],
+  "author_note": "Correct: try carrier status (times out), do not invent a status, cite the last hub scan and the timeout procedure, escalate. Likely failure: assuming 'out for delivery' or ignoring the tool error. The carrier record exists but every call fails, so it cannot be required evidence."
+}

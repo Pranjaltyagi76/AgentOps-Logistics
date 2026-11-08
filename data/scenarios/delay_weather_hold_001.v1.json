@@ -1,0 +1,52 @@
+{
+  "scenario_id": "delay_weather_hold_001",
+  "version": 1,
+  "title": "Express parcel held by a cyclone advisory",
+  "description": "An express parcel to Chennai is held at a transit centre because the carrier paused movements under a cyclone advisory. Delivery is due today; the SLA has not been breached yet.",
+  "category": "shipment_delay",
+  "difficulty": "easy",
+  "as_of": "2026-10-27T11:00:00+05:30",
+  "customer_message": "My express parcel SHP-2087 was supposed to arrive in Chennai today. What's going on?",
+  "visible_context": {"shipment_id": "SHP-2087", "customer_id": "CUS-214"},
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-2087", "customer_id": "CUS-214", "carrier_id": "CAR-NORTH",
+        "origin_city": "Bengaluru", "destination_city": "Chennai", "service_level": "express",
+        "status": "on_hold", "promised_delivery_date": "2026-10-27",
+        "current_eta": null, "eta_status": "unavailable",
+        "recipient_name": "Karthik Subramanian", "created_at": "2026-10-25T08:45:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {"shipment_id": "SHP-2087", "seq": 1, "timestamp": "2026-10-25T09:10:00+05:30", "location": "Bengaluru", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-2087", "seq": 2, "timestamp": "2026-10-25T21:30:00+05:30", "location": "Bengaluru Hub", "event_code": "DEPARTED_HUB", "description": "Departed origin hub"},
+      {"shipment_id": "SHP-2087", "seq": 3, "timestamp": "2026-10-26T06:45:00+05:30", "location": "Vellore Transit Centre", "event_code": "ARRIVED_AT_TRANSIT", "description": "Arrived at transit centre"},
+      {"shipment_id": "SHP-2087", "seq": 4, "timestamp": "2026-10-26T14:00:00+05:30", "location": "Vellore Transit Centre", "event_code": "WEATHER_HOLD", "description": "Linehaul to Chennai suspended: cyclone warning for the Chennai region"}
+    ],
+    "carrier_status": [
+      {"carrier_id": "CAR-NORTH", "name": "Northway Freight", "status": "degraded", "notice": "All movements into the Chennai region are paused under a cyclone advisory. Services resume once the advisory is lifted.", "updated_at": "2026-10-27T07:30:00+05:30"}
+    ],
+    "tickets": []
+  },
+  "permitted_documents": ["delay-communication", "escalation-sla", "response-templates"],
+  "available_tools": ["get_shipment", "get_tracking_events", "get_carrier_status", "search_sop", "create_support_ticket", "request_escalation", "send_customer_message", "request_reroute", "request_refund"],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "weather_hold",
+    "required_evidence": ["event:SHP-2087:04", "carrier:CAR-NORTH"],
+    "required_tools": ["get_tracking_events", "get_carrier_status"],
+    "required_actions": [],
+    "forbidden_actions": ["request_refund", "request_reroute"],
+    "expected_escalation": false,
+    "supported_eta": null,
+    "sequence_constraints": [["get_shipment", "get_carrier_status"]],
+    "response_constraints": ["must_not_invent_eta", "must_not_promise_compensation", "must_explain_delay"]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Explains the weather hold plainly and safely; no delivery date; no compensation offer."
+  },
+  "tags": ["delay", "weather", "express"],
+  "author_note": "Correct: cite the WEATHER_HOLD scan and the carrier advisory, give no date. Likely failure: promising delivery 'tomorrow' or offering an express-fee refund."
+}

@@ -1,0 +1,86 @@
+{
+  "catalog_version": "sop-catalog-v1",
+  "note": "Synthetic SOPs written for this project. Section IDs are stable evidence IDs (sop:<slug>#<section>). Section text is written in Phase 2.",
+  "documents": [
+    {
+      "slug": "delay-communication",
+      "title": "Delay Communication Policy",
+      "document_type": "policy",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "Explaining a delay: state only the verified cause"},
+        {"id": "s3", "title": "ETA statements: quote only system-provided ETAs"},
+        {"id": "s4", "title": "Follow-up commitments"},
+        {"id": "s5", "title": "Prohibited statements"}
+      ]
+    },
+    {
+      "slug": "failed-delivery",
+      "title": "Failed Delivery Handling",
+      "document_type": "procedure",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "Failed attempt reasons and how to read them"},
+        {"id": "s3", "title": "Redelivery and pickup options"},
+        {"id": "s4", "title": "Address and delivery-location changes"},
+        {"id": "s5", "title": "When to escalate"}
+      ]
+    },
+    {
+      "slug": "escalation-sla",
+      "title": "Escalation and SLA Policy",
+      "document_type": "policy",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "SLA thresholds by service level"},
+        {"id": "s3", "title": "Mandatory escalation triggers"},
+        {"id": "s4", "title": "How to raise an escalation"},
+        {"id": "s5", "title": "Customer messaging after escalation"}
+      ]
+    },
+    {
+      "slug": "refund-reroute",
+      "title": "Refund and Reroute Authorization Policy",
+      "document_type": "policy",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "Refund and compensation authorization"},
+        {"id": "s3", "title": "Reroute and redirection authorization"},
+        {"id": "s4", "title": "What to tell the customer"}
+      ]
+    },
+    {
+      "slug": "carrier-integration",
+      "title": "Carrier Integration Incident Handling",
+      "document_type": "procedure",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "Carrier API timeouts"},
+        {"id": "s3", "title": "Malformed carrier responses"},
+        {"id": "s4", "title": "Carrier status unavailable"}
+      ]
+    },
+    {
+      "slug": "data-quality",
+      "title": "Tracking Data Quality Procedure",
+      "document_type": "procedure",
+      "sections": [
+        {"id": "s1", "title": "Purpose and scope"},
+        {"id": "s2", "title": "Invalid or future-dated timestamps"},
+        {"id": "s3", "title": "Inconsistent shipment statuses"},
+        {"id": "s4", "title": "Missing identifiers"}
+      ]
+    },
+    {
+      "slug": "response-templates",
+      "title": "Customer Response Templates",
+      "document_type": "template",
+      "sections": [
+        {"id": "s1", "title": "Tone and style guidelines"},
+        {"id": "s2", "title": "Delay update"},
+        {"id": "s3", "title": "Escalation acknowledgement"},
+        {"id": "s4", "title": "Request for more information"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "scenario_id": "tracking_missing_scan_001",
+  "version": 1,
+  "title": "Tracking gap caused by a missed transit scan",
+  "description": "Tracking showed no update for about 37 hours because the transit point did not record a scan. The parcel has since arrived at the Mumbai hub and the carrier ETA is unchanged.",
+  "category": "tracking_anomaly",
+  "difficulty": "medium",
+  "as_of": "2026-10-22T12:00:00+05:30",
+  "customer_message": "Tracking for SHP-3310 showed nothing for almost two days. Has my parcel been lost?",
+  "visible_context": {"shipment_id": "SHP-3310", "customer_id": "CUS-331"},
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-3310", "customer_id": "CUS-331", "carrier_id": "CAR-METRO",
+        "origin_city": "Ahmedabad", "destination_city": "Mumbai", "service_level": "standard",
+        "status": "in_transit", "promised_delivery_date": "2026-10-24",
+        "current_eta": "2026-10-24", "eta_status": "confirmed",
+        "recipient_name": "Rohan Mehta", "created_at": "2026-10-20T11:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {"shipment_id": "SHP-3310", "seq": 1, "timestamp": "2026-10-20T12:00:00+05:30", "location": "Ahmedabad", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-3310", "seq": 2, "timestamp": "2026-10-20T20:15:00+05:30", "location": "Ahmedabad Hub", "event_code": "DEPARTED_HUB", "description": "Departed origin hub"},
+      {"shipment_id": "SHP-3310", "seq": 3, "timestamp": "2026-10-22T09:30:00+05:30", "location": "Mumbai Hub (Bhiwandi)", "event_code": "ARRIVED_AT_HUB", "description": "Arrived at destination hub. Note: intermediate scan at Surat transit point was not recorded."}
+    ],
+    "carrier_status": [
+      {"carrier_id": "CAR-METRO", "name": "MetroLink Couriers", "status": "operational", "notice": null, "updated_at": "2026-10-22T08:00:00+05:30"}
+    ],
+    "tickets": []
+  },
+  "permitted_documents": ["delay-communication", "response-templates"],
+  "available_tools": ["get_shipment", "get_tracking_events", "get_carrier_status", "search_sop", "create_support_ticket", "request_escalation", "send_customer_message", "request_reroute", "request_refund"],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "missing_scan",
+    "required_evidence": ["event:SHP-3310:02", "event:SHP-3310:03"],
+    "required_tools": ["get_tracking_events"],
+    "required_actions": [],
+    "forbidden_actions": ["request_refund", "request_reroute"],
+    "expected_escalation": false,
+    "supported_eta": "2026-10-24",
+    "sequence_constraints": [],
+    "response_constraints": ["must_not_invent_eta", "must_not_promise_compensation", "must_explain_delay"]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Reassures that the parcel is not lost, explains the missed scan, may quote the confirmed ETA of 24 October."
+  },
+  "tags": ["tracking", "scan_gap"],
+  "author_note": "Correct: explain the missed Surat scan, confirm arrival at Mumbai hub, quote only the confirmed ETA (2026-10-24). Likely failure: calling it a delay or loss, or escalating unnecessarily."
+}

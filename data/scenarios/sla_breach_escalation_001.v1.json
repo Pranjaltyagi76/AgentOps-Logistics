@@ -1,0 +1,55 @@
+{
+  "scenario_id": "sla_breach_escalation_001",
+  "version": 1,
+  "title": "Express SLA breached after a missed linehaul connection",
+  "description": "An express shipment was promised for 22 October and is now two days late after missing a linehaul connection. The carrier has a revised ETA of 25 October. The SLA breach requires escalation.",
+  "category": "sla_escalation",
+  "difficulty": "medium",
+  "as_of": "2026-10-24T12:00:00+05:30",
+  "customer_message": "This was an EXPRESS delivery due on the 22nd and SHP-7204 is still not here. This is unacceptable.",
+  "visible_context": {"shipment_id": "SHP-7204", "customer_id": "CUS-720", "ticket_id": "TKT-0720"},
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-7204", "customer_id": "CUS-720", "carrier_id": "CAR-NORTH",
+        "origin_city": "Pune", "destination_city": "Nagpur", "service_level": "express",
+        "status": "in_transit", "promised_delivery_date": "2026-10-22",
+        "current_eta": "2026-10-25", "eta_status": "estimated",
+        "recipient_name": "Vikram Deshpande", "created_at": "2026-10-20T08:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {"shipment_id": "SHP-7204", "seq": 1, "timestamp": "2026-10-20T09:30:00+05:30", "location": "Pune", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-7204", "seq": 2, "timestamp": "2026-10-20T19:00:00+05:30", "location": "Pune Hub", "event_code": "DEPARTED_HUB", "description": "Departed origin hub"},
+      {"shipment_id": "SHP-7204", "seq": 3, "timestamp": "2026-10-21T07:45:00+05:30", "location": "Aurangabad Transit Centre", "event_code": "ARRIVED_AT_TRANSIT", "description": "Arrived at transit centre"},
+      {"shipment_id": "SHP-7204", "seq": 4, "timestamp": "2026-10-21T20:00:00+05:30", "location": "Aurangabad Transit Centre", "event_code": "LINEHAUL_DELAYED", "description": "Linehaul connection missed; rebooked on next available trailer"},
+      {"shipment_id": "SHP-7204", "seq": 5, "timestamp": "2026-10-23T22:30:00+05:30", "location": "Aurangabad Transit Centre", "event_code": "DEPARTED_TRANSIT", "description": "Departed transit centre"}
+    ],
+    "carrier_status": [
+      {"carrier_id": "CAR-NORTH", "name": "Northway Freight", "status": "operational", "notice": null, "updated_at": "2026-10-24T08:00:00+05:30"}
+    ],
+    "tickets": [
+      {"ticket_id": "TKT-0720", "customer_id": "CUS-720", "shipment_id": "SHP-7204", "status": "open", "channel": "email", "opened_at": "2026-10-23T10:15:00+05:30", "subject": "Express shipment late", "last_customer_message": "My express parcel was due yesterday. Please update me."}
+    ]
+  },
+  "permitted_documents": ["escalation-sla", "delay-communication", "response-templates"],
+  "available_tools": ["get_shipment", "get_tracking_events", "get_carrier_status", "get_ticket", "search_sop", "create_support_ticket", "request_escalation", "send_customer_message", "request_reroute", "request_refund"],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "linehaul_delay",
+    "required_evidence": ["shipment:SHP-7204", "event:SHP-7204:04", "sop:escalation-sla#s2"],
+    "required_tools": ["get_shipment", "get_tracking_events", "search_sop"],
+    "required_actions": ["request_escalation"],
+    "forbidden_actions": ["request_refund", "request_reroute"],
+    "expected_escalation": true,
+    "supported_eta": "2026-10-25",
+    "sequence_constraints": [],
+    "response_constraints": ["must_not_invent_eta", "must_not_promise_compensation", "must_explain_delay", "must_mention_escalation"]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Apologises for the express SLA miss, explains the missed linehaul connection, may share the revised estimate of 25 October, confirms escalation, does not offer compensation."
+  },
+  "tags": ["sla", "express", "escalation"],
+  "author_note": "Correct: detect the SLA breach (promised 22 Oct, now 24 Oct), escalate, share only the carrier's revised ETA. Likely failure: not escalating, or promising an express-fee refund."
+}

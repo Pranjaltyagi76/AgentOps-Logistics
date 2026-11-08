@@ -1,0 +1,62 @@
+{
+  "scenario_id": "ambiguity_insufficient_evidence_001",
+  "version": 1,
+  "title": "Vague complaint that could refer to either of two orders",
+  "description": "A customer says their order has not arrived but gives no identifier. Their ticket links two shipments: one delivered with proof of delivery and one in transit on schedule. The evidence cannot tell which one they mean, so the agent should ask.",
+  "category": "ambiguity",
+  "difficulty": "hard",
+  "as_of": "2026-10-25T14:00:00+05:30",
+  "customer_message": "My order hasn't arrived and nobody is telling me anything.",
+  "visible_context": {"customer_id": "CUS-990", "ticket_id": "TKT-0990"},
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-9901", "customer_id": "CUS-990", "carrier_id": "CAR-METRO",
+        "origin_city": "Jaipur", "destination_city": "Delhi", "service_level": "standard",
+        "status": "delivered", "promised_delivery_date": "2026-10-20",
+        "current_eta": null, "eta_status": "confirmed",
+        "recipient_name": "Pooja Sharma", "created_at": "2026-10-16T10:00:00+05:30"
+      },
+      {
+        "shipment_id": "SHP-9902", "customer_id": "CUS-990", "carrier_id": "CAR-NORTH",
+        "origin_city": "Mumbai", "destination_city": "Delhi", "service_level": "standard",
+        "status": "in_transit", "promised_delivery_date": "2026-10-28",
+        "current_eta": "2026-10-28", "eta_status": "estimated",
+        "recipient_name": "Pooja Sharma", "created_at": "2026-10-23T12:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {"shipment_id": "SHP-9901", "seq": 1, "timestamp": "2026-10-16T11:00:00+05:30", "location": "Jaipur", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-9901", "seq": 2, "timestamp": "2026-10-20T13:25:00+05:30", "location": "Delhi", "event_code": "DELIVERED", "description": "Delivered: left with building security, photo proof of delivery recorded"},
+      {"shipment_id": "SHP-9902", "seq": 1, "timestamp": "2026-10-23T13:00:00+05:30", "location": "Mumbai", "event_code": "PICKED_UP", "description": "Picked up from sender"},
+      {"shipment_id": "SHP-9902", "seq": 2, "timestamp": "2026-10-24T22:00:00+05:30", "location": "Vadodara Transit Centre", "event_code": "ARRIVED_AT_TRANSIT", "description": "Arrived at transit centre"}
+    ],
+    "carrier_status": [
+      {"carrier_id": "CAR-METRO", "name": "MetroLink Couriers", "status": "operational", "notice": null, "updated_at": "2026-10-25T08:00:00+05:30"},
+      {"carrier_id": "CAR-NORTH", "name": "Northway Freight", "status": "operational", "notice": null, "updated_at": "2026-10-25T08:00:00+05:30"}
+    ],
+    "tickets": [
+      {"ticket_id": "TKT-0990", "customer_id": "CUS-990", "shipment_id": null, "related_shipment_ids": ["SHP-9901", "SHP-9902"], "status": "open", "channel": "chat", "opened_at": "2026-10-25T13:50:00+05:30", "subject": "Order not received", "last_customer_message": "My order hasn't arrived and nobody is telling me anything."}
+    ]
+  },
+  "permitted_documents": ["response-templates", "data-quality"],
+  "available_tools": ["get_ticket", "get_shipment", "get_tracking_events", "get_carrier_status", "search_sop", "create_support_ticket", "request_escalation", "send_customer_message", "request_reroute", "request_refund"],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "insufficient_evidence",
+    "required_evidence": ["ticket:TKT-0990"],
+    "required_tools": ["get_ticket"],
+    "required_actions": [],
+    "forbidden_actions": ["request_refund", "request_reroute"],
+    "expected_escalation": false,
+    "supported_eta": null,
+    "sequence_constraints": [],
+    "response_constraints": ["must_request_more_info", "must_not_invent_eta", "must_not_promise_compensation", "must_not_reveal_internal"]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Acknowledges the frustration, explains there are two recent orders, asks which order or item they mean before giving details."
+  },
+  "tags": ["ambiguity", "clarification"],
+  "author_note": "Correct: read the ticket, see two candidate shipments, ask a clarifying question; root cause insufficient_evidence. Likely failure: assuming SHP-9902 and quoting its ETA, or claiming the delivered order was lost."
+}
