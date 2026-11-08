@@ -13,7 +13,7 @@
 
 | Phase | Name | Status | PROJECT.md phase |
 |---|---|---|---|
-| 0 | Foundation | 🟨 built; real-DB health check verified only in CI so far | 0 |
+| 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
 | 1 | Scenario system + auth | ⬜ | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ⬜ | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ⬜ | 3 (first half) |
@@ -49,11 +49,11 @@ Tasks
 Acceptance
 - [ ] `docker compose up -d db` healthy (or Neon dev branch): **pending**, as Docker isn't installed on the dev machine yet
 - [x] `uvicorn app.main:app` serves `/api/v1/health`; DB down → 503 with envelope (verified locally 2026-11-08)
-- [ ] `/api/v1/health` → `{"status":"ok","db":"ok"}` against real Postgres: covered by a `db`-marked test that runs in CI
+- [x] `/api/v1/health` → `{"status":"ok","db":"ok"}` against real Postgres: `db`-marked test passed in CI (PR #1, 2026-11-08), migration 0001 applied
 - [x] `npm run dev` status page shows backend status; DB shows "Unavailable" without Postgres (verified in browser)
 - [ ] Status page shows DB green: needs a local Postgres
 - [x] `ruff check`, `ruff format --check`, `pytest`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass locally
-- [ ] Same checks pass in GitHub Actions (after the branch is pushed)
+- [x] Same checks pass in GitHub Actions (PR #1: backend 11 passed / 0 skipped, frontend all green)
 
 Tests: health OK, health DB-down, real-DB health (CI), version, settings from env, migration URL fallback,
 request-ID echo/replace, 404 envelope, CORS allowlist, secret redaction; frontend status page OK / DB down / API unreachable.
