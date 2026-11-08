@@ -13,7 +13,7 @@
 
 | Phase | Name | Status | PROJECT.md phase |
 |---|---|---|---|
-| 0 | Foundation | ⬜ not started | 0 |
+| 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
 | 1 | Scenario system + auth | ⬜ | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ⬜ | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ⬜ | 3 (first half) |
@@ -36,23 +36,30 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done (acceptance verified). U
 **Goal:** empty but runnable full stack with DB connectivity and CI.
 
 Tasks
-- `git init`, `.gitignore` (Python, Node, `.env`, `.venv`, `dist`), root `.env.example`.
+- `git init`, `.gitignore` (Python, Node, `.env`, `.venv`, `dist`), `.env.example` in `backend/` and `frontend/`.
 - `docker-compose.yml` with `pgvector/pgvector:pg16` (named volume, healthcheck, port 5432).
 - `backend/`: `pyproject.toml` (pinned deps, ruff config, pytest config), `app/main.py` app factory,
   `core/config.py` Settings, `core/logging.py`, `core/errors.py` error envelope, `db/session.py`,
   Alembic init + empty baseline migration, `api/v1/health.py` (`/health` checks DB with `SELECT 1`, `/version`).
 - `frontend/`: Vite React TS, Tailwind, shadcn/ui init, React Router, TanStack Query, axios instance using
   `VITE_API_BASE_URL`, `AppShell` with sidebar placeholders, a status page calling `/health`.
-- `.github/workflows/ci.yml`: backend (ruff, pytest with Postgres service container) + frontend (tsc, eslint, build).
+- `.github/workflows/ci.yml`: backend (ruff, migrations, pytest with Postgres service container) + frontend (oxlint, tsc, vitest, build).
 - README "Getting started" made real.
 
 Acceptance
-- [ ] `docker compose up -d db` healthy (or Neon dev branch if Docker is not yet installed)
-- [ ] `uvicorn app.main:app` serves `/api/v1/health` → `{"status":"ok","db":"ok"}`; DB down → 503 with envelope
-- [ ] `npm run dev` status page shows backend + DB green
-- [ ] `ruff check`, `pytest`, `tsc --noEmit`, `npm run build` pass locally and in CI
+- [ ] `docker compose up -d db` healthy (or Neon dev branch): **pending**, as Docker isn't installed on the dev machine yet
+- [x] `uvicorn app.main:app` serves `/api/v1/health`; DB down → 503 with envelope (verified locally 2026-11-08)
+- [x] `/api/v1/health` → `{"status":"ok","db":"ok"}` against real Postgres: `db`-marked test passed in CI (PR #1, 2026-11-08), migration 0001 applied
+- [x] `npm run dev` status page shows backend status; DB shows "Unavailable" without Postgres (verified in browser)
+- [ ] Status page shows DB green: needs a local Postgres
+- [x] `ruff check`, `ruff format --check`, `pytest`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass locally
+- [x] Same checks pass in GitHub Actions (PR #1: backend 11 passed / 0 skipped, frontend all green)
 
-Tests: health OK, health DB-down (dependency override), settings load from env.
+Tests: health OK, health DB-down, real-DB health (CI), version, settings from env, migration URL fallback,
+request-ID echo/replace, 404 envelope, CORS allowlist, secret redaction; frontend status page OK / DB down / API unreachable.
+
+Implementation notes: Python deps use **uv** (`uv.lock`); the frontend linter is **oxlint** (Vite template default);
+TypeScript 7, Vite 8, React 19, React Router 8, Tailwind 4, shadcn/ui (radix-nova preset).
 
 ---
 

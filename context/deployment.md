@@ -57,19 +57,25 @@ docker compose version
 docker compose up -d db
 ```
 
-Backend (PowerShell, from the repo root):
+Backend (PowerShell, from the repo root). Python dependencies are managed by **uv**: `uv sync`
+creates `backend/.venv` from the exact versions in `backend/uv.lock`.
 
 ```powershell
 cd backend
-py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Copy-Item .env.example .env     # then edit values; add GEMINI_API_KEY yourself
-alembic upgrade head
-python ..\scripts\seed_db.py
-python ..\scripts\create_owner.py  # reads OWNER_EMAIL / OWNER_PASSWORD from env
-uvicorn app.main:app --reload --port 8000
+uv sync
+Copy-Item .env.example .env     # then edit values; add GEMINI_API_KEY yourself (Phase 6)
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
 ```
+
+From Phase 1, also seed data and create the owner account:
+
+```powershell
+uv run python ..\scripts\seed_db.py
+uv run python ..\scripts\create_owner.py   # reads OWNER_EMAIL / OWNER_PASSWORD from env
+```
+
+To add a dependency: `uv add <package>` (or `uv add --dev <package>`), then commit `pyproject.toml` and `uv.lock`.
 
 Frontend (second terminal, from the repo root):
 
@@ -80,26 +86,20 @@ Copy-Item .env.example .env.local  # VITE_API_BASE_URL=http://localhost:8000
 npm run dev                     # http://localhost:5173
 ```
 
-### 2.3 docker-compose.yml (planned shape)
+### 2.3 Local database
 
-```yaml
-services:
-  db:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: agentops
-      POSTGRES_PASSWORD: agentops_dev      # local only
-      POSTGRES_DB: agentops
-    ports: ["5432:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U agentops"]
-      interval: 5s
-      retries: 10
-  # backend service added for production-like local testing (optional)
-volumes:
-  pgdata:
-```
+[../docker-compose.yml](../docker-compose.yml) runs `pgvector/pgvector:pg16` as `agentops-db` on port 5432
+(user `agentops`, password `agentops_dev`, database `agentops`, for local use only) with a named volume
+and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1` rather than
+`localhost`, so a missing database fails fast instead of timing out on IPv6 first.
+
+### 2.4 Checks
+
+| Area | Commands |
+|---|---|
+| Backend | `uv run ruff check .` · `uv run ruff format --check .` · `uv run pytest` |
+| Backend + real DB | set `RUN_DB_TESTS=1` with a reachable `DATABASE_URL`, then `uv run pytest` |
+| Frontend | `npm run lint` (oxlint) · `npm run typecheck` · `npm test` (Vitest) · `npm run build` |
 
 ## 3. Environment variables
 
@@ -145,7 +145,7 @@ Commit only `.env.example` files with placeholders.
 ## 5. Backend (Render)
 
 1. New **Web Service** from the GitHub repo, root directory `backend`, runtime Python (or Docker using `backend/Dockerfile`).
-2. Build command: `pip install .`
+2. Build command: `pip install uv && uv sync --locked --no-dev` (or deploy `backend/Dockerfile`; decided in Phase 11)
 3. Start command:
    ```bash
    alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
@@ -174,7 +174,7 @@ Commit only `.env.example` files with placeholders.
 
 ## 7. CI/CD
 
-- GitHub Actions on push/PR: backend (ruff, pytest with `pgvector/pgvector:pg16` service container), frontend (`tsc --noEmit`, eslint, vitest, build), scenario validation.
+- GitHub Actions on push/PR: backend (ruff, pytest with `pgvector/pgvector:pg16` service container), frontend (oxlint, `tsc -b`, vitest, build); scenario validation added in Phase 1.
 - Render and Vercel auto-deploy from `main` after CI passes (enable "wait for CI" / branch protection).
 - No secrets needed in CI; LLM tests are skipped.
 
