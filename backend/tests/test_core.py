@@ -6,6 +6,7 @@ from app.core.logging import redact
 
 def test_settings_read_from_environment(monkeypatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET", "x" * 40)
     monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@db.example:5432/x")
     monkeypatch.setenv("CORS_ORIGINS", "https://a.example, https://b.example ,")
     settings = Settings(_env_file=None)
@@ -13,6 +14,16 @@ def test_settings_read_from_environment(monkeypatch) -> None:
     assert settings.database_url.endswith("db.example:5432/x")
     assert settings.cors_origin_list == ["https://a.example", "https://b.example"]
     assert settings.alembic_database_url == settings.database_url
+
+
+def test_production_requires_a_real_jwt_secret(monkeypatch) -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("JWT_SECRET", raising=False)
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(_env_file=None)
 
 
 def test_migration_url_overrides_database_url() -> None:
@@ -59,3 +70,10 @@ def test_redact_masks_secrets() -> None:
     assert "s3cret" not in masked
     assert "hunter2" not in masked
     assert "postgresql+psycopg://agentops:***@host/db" in masked
+
+
+def test_blank_jwt_secret_falls_back_to_dev_default_outside_production(monkeypatch) -> None:
+    from app.core.config import DEV_JWT_SECRET
+
+    monkeypatch.setenv("JWT_SECRET", "")
+    assert Settings(_env_file=None).jwt_secret.get_secret_value() == DEV_JWT_SECRET

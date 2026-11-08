@@ -5,14 +5,19 @@ their own (provider keys, run limits, ...). Secrets must use `SecretStr`.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["local", "test", "production"]
 
 DEFAULT_DATABASE_URL = "postgresql+psycopg://agentops:agentops_dev@127.0.0.1:5432/agentops"
+# Repo-root data/ folder (scenarios, SOPs). backend/app/core/config.py -> parents[3] = repo root.
+DEFAULT_DATA_DIR = Path(__file__).resolve().parents[3] / "data"
+# Only for local development and tests; production refuses to start with it.
+DEV_JWT_SECRET = "dev-only-insecure-jwt-secret-change-me-0123456789"
 
 
 class Settings(BaseSettings):
@@ -32,6 +37,27 @@ class Settings(BaseSettings):
 
     # Comma-separated list, e.g. "http://localhost:5173,https://app.vercel.app".
     cors_origins: str = "http://localhost:5173"
+
+    data_dir: Path = DEFAULT_DATA_DIR
+
+    # Auth (Phase 1)
+    jwt_secret: SecretStr = SecretStr(DEV_JWT_SECRET)
+    jwt_expire_minutes: int = Field(default=120, ge=5, le=24 * 60)
+    demo_login_enabled: bool = True
+    login_rate_limit_per_minute: int = Field(default=10, ge=1)
+
+    @field_validator("jwt_secret", mode="before")
+    @classmethod
+    def _empty_secret_means_unset(cls, value: object) -> object:
+        # A blank `JWT_SECRET=` copied from .env.example falls back to the dev default.
+        return DEV_JWT_SECRET if value in (None, "") else value
+
+    @model_validator(mode="after")
+    def _require_real_secret_in_production(self) -> "Settings":
+        secret = self.jwt_secret.get_secret_value()
+        if self.app_env == "production" and (secret == DEV_JWT_SECRET or len(secret) < 32):
+            raise ValueError("JWT_SECRET must be set to a random value of 32+ characters")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:
