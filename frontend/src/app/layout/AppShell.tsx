@@ -5,12 +5,16 @@ import {
   FlaskConical,
   LayoutDashboard,
   ListChecks,
+  LogOut,
   PlayCircle,
   Settings,
   type LucideIcon,
 } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router'
+import { NavLink, Outlet, useNavigate } from 'react-router'
 
+import { useAuth } from '@/app/auth/context'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 interface NavItem {
@@ -22,15 +26,42 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Status', icon: Activity, to: '/' },
   { label: 'Dashboard', icon: LayoutDashboard, phase: 9 },
-  { label: 'Scenarios', icon: ListChecks, phase: 1 },
+  { label: 'Scenarios', icon: ListChecks, to: '/scenarios' },
   { label: 'Agents', icon: Bot, phase: 3 },
   { label: 'Runs', icon: PlayCircle, phase: 4 },
   { label: 'Benchmarks', icon: FlaskConical, phase: 8 },
   { label: 'Reports', icon: FileBarChart, phase: 9 },
   { label: 'Settings', icon: Settings, phase: 6 },
+  { label: 'System status', icon: Activity, to: '/status' },
 ]
+
+function SessionPanel() {
+  const { session, logout } = useAuth()
+  const navigate = useNavigate()
+  if (!session) return null
+  return (
+    <div className="mt-auto flex flex-col gap-2 border-t px-5 py-4 text-sm">
+      <div className="flex items-center gap-2">
+        <Badge variant={session.role === 'owner' ? 'default' : 'secondary'}>
+          {session.role === 'owner' ? 'Owner' : 'Demo viewer'}
+        </Badge>
+      </div>
+      {session.email ? <p className="truncate text-xs text-muted-foreground">{session.email}</p> : null}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="justify-start px-2"
+        onClick={() => {
+          logout()
+          navigate('/login', { replace: true })
+        }}
+      >
+        <LogOut aria-hidden /> Sign out
+      </Button>
+    </div>
+  )
+}
 
 export function AppShell() {
   return (
@@ -46,7 +77,6 @@ export function AppShell() {
               <NavLink
                 key={item.label}
                 to={item.to}
-                end
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
@@ -73,6 +103,7 @@ export function AppShell() {
             ),
           )}
         </nav>
+        <SessionPanel />
       </aside>
       <main className="flex-1 overflow-y-auto p-8">
         <Outlet />

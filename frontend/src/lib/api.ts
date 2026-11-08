@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios'
 
+import { getSession, setSession } from './session'
+
 /** Base URL of the FastAPI backend, baked in at build time. Never put secrets in VITE_* vars. */
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -75,7 +77,22 @@ export function toApiError(err: unknown): ApiError {
   return new ApiError({ code: 'unknown_error', message: String(err), status: null })
 }
 
+const SESSION_ERROR_CODES = new Set(['not_authenticated', 'invalid_token', 'token_expired'])
+
+api.interceptors.request.use((config) => {
+  const session = getSession()
+  if (session) config.headers.set('Authorization', `Bearer ${session.token}`)
+  return config
+})
+
 api.interceptors.response.use(
   (response) => response,
-  (error: unknown) => Promise.reject(toApiError(error)),
+  (error: unknown) => {
+    const apiError = toApiError(error)
+    // A rejected session token signs the user out; the router then shows the login page.
+    if (apiError.status === 401 && SESSION_ERROR_CODES.has(apiError.code) && getSession()) {
+      setSession(null)
+    }
+    return Promise.reject(apiError)
+  },
 )
