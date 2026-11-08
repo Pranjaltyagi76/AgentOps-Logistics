@@ -1,0 +1,22 @@
+# Local development services. Start with:  docker compose up -d db
+# Credentials below are for local development only.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: agentops-db
+    environment:
+      POSTGRES_USER: agentops
+      POSTGRES_PASSWORD: agentops_dev
+      POSTGRES_DB: agentops
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentops -d agentops"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
