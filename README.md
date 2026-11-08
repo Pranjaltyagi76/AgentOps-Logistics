@@ -8,7 +8,8 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 0 (Foundation) built** — API skeleton, database wiring, app shell and CI.
+> **Project status:** 🏗️ **Phase 1 done**: scenario catalog (10 validated, versioned scenarios), owner and
+> demo-viewer login, scenario list/detail/editor UI. Agent runs and scoring come next.
 > Features below are *planned* unless marked otherwise. No benchmark results have been produced; none are shown here.
 
 ---
@@ -68,9 +69,9 @@ agentops-logistics/
 ├── backend/             FastAPI app (uv project, Alembic migrations, pytest)   ✅ Phase 0
 ├── frontend/            React + Vite + TypeScript app (Tailwind, shadcn/ui)    ✅ Phase 0
 ├── data/
-│   ├── scenarios/       versioned scenario JSON     (planned — Phase 1)
-│   └── sops/            synthetic SOP documents     (planned — Phase 2)
-├── scripts/             seed, validate, run_benchmark (planned — Phase 1+)
+│   ├── scenarios/       10 versioned scenario JSON files                        ✅ Phase 1
+│   └── sops/            SOP catalog ✅ Phase 1 · SOP text (planned — Phase 2)
+├── scripts/             validate_scenarios, seed_db, create_owner              ✅ Phase 1
 ├── context/             design & planning docs      ✅
 ├── .github/workflows/   CI (backend + frontend)     ✅ Phase 0
 ├── docker-compose.yml   local Postgres 16 + pgvector ✅ Phase 0
@@ -96,8 +97,10 @@ docker compose up -d db
 ```powershell
 cd backend
 uv sync
-Copy-Item .env.example .env
+Copy-Item .env.example .env        # set JWT_SECRET, OWNER_EMAIL, OWNER_PASSWORD
 uv run alembic upgrade head
+uv run python ..\scripts\seed_db.py
+uv run python ..\scripts\create_owner.py
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
@@ -110,19 +113,21 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The status page shows whether the API and the database are reachable.
+Sign in with the owner account, or click **Continue as demo viewer** for read-only access (hidden
+answers stay hidden). **System status** in the sidebar shows whether the API and database are reachable.
 
 **Checks** (the same ones CI runs):
 
 ```powershell
-cd backend; uv run ruff check .; uv run ruff format --check .; uv run pytest
+cd backend; uv run ruff check .; uv run ruff format --check .; uv run python ..\scripts\validate_scenarios.py; uv run pytest
 ```
 
 ```powershell
 cd frontend; npm run lint; npm run typecheck; npm test; npm run build
 ```
 
-Database-backed tests run only with `RUN_DB_TESTS=1` and a reachable `DATABASE_URL`; CI provides one.
+Database-backed tests run only with `RUN_DB_TESTS=1`. They use `TEST_DATABASE_URL` (a separate, empty
+database) if set, otherwise `DATABASE_URL`; each test is rolled back. CI provides a Postgres service.
 Full step-by-step instructions: [context/deployment.md §2](context/deployment.md).
 
 ## Development workflow

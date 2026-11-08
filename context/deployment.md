@@ -49,7 +49,16 @@ Start Docker Desktop once and accept its setup. Verify:
 docker compose version
 ```
 
-**Fallback without Docker:** create a free Neon project, make a `dev` branch, and put its connection string in `backend/.env` as `DATABASE_URL`.
+**Fallbacks without Docker:**
+- **Neon:** create a free project, make a `dev` branch, and put its connection string in `backend/.env` as `DATABASE_URL`.
+- **Portable Postgres binaries** (what the dev machine uses as of 2026-11-08, no admin rights needed):
+  Postgres 16.2 binaries in `%LOCALAPPDATA%\Programs\pgsql-16`, data in `%LOCALAPPDATA%\agentops-pg\data`,
+  listening on `127.0.0.1:5432` with the same user/password/database names as the Docker setup, plus an
+  empty `agentops_test` database for tests. Start it after a reboot with:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\pgsql-16\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\agentops-pg\data" -l "$env:LOCALAPPDATA\agentops-pg\server.log" -o "-p 5432 -c listen_addresses=127.0.0.1" start
+```
 
 ### 2.2 Run locally (available from Phase 0)
 
@@ -65,14 +74,9 @@ cd backend
 uv sync
 Copy-Item .env.example .env     # then edit values; add GEMINI_API_KEY yourself (Phase 6)
 uv run alembic upgrade head
+uv run python ..\scripts\seed_db.py         # loads data/scenarios (safe to re-run)
+uv run python ..\scripts\create_owner.py    # reads OWNER_EMAIL / OWNER_PASSWORD from env or .env
 uv run uvicorn app.main:app --reload --port 8000
-```
-
-From Phase 1, also seed data and create the owner account:
-
-```powershell
-uv run python ..\scripts\seed_db.py
-uv run python ..\scripts\create_owner.py   # reads OWNER_EMAIL / OWNER_PASSWORD from env
 ```
 
 To add a dependency: `uv add <package>` (or `uv add --dev <package>`), then commit `pyproject.toml` and `uv.lock`.
@@ -97,8 +101,8 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 
 | Area | Commands |
 |---|---|
-| Backend | `uv run ruff check .` · `uv run ruff format --check .` · `uv run pytest` |
-| Backend + real DB | set `RUN_DB_TESTS=1` with a reachable `DATABASE_URL`, then `uv run pytest` |
+| Backend | `uv run ruff check .` · `uv run ruff format --check .` · `uv run python ../scripts/validate_scenarios.py` · `uv run pytest` |
+| Backend + real DB | set `RUN_DB_TESTS=1` and `TEST_DATABASE_URL` (an empty database, e.g. `.../agentops_test`), then `uv run pytest`; each test is rolled back |
 | Frontend | `npm run lint` (oxlint) · `npm run typecheck` · `npm test` (Vitest) · `npm run build` |
 
 ## 3. Environment variables
@@ -110,8 +114,11 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `APP_ENV` | yes | `local` \| `production` | toggles docs exposure, log format |
 | `DATABASE_URL` | yes | `postgresql+psycopg://agentops:agentops_dev@localhost:5432/agentops` | Neon: use the **pooled** host, `?sslmode=require` |
 | `MIGRATION_DATABASE_URL` | no | Neon **direct** (non-pooled) URL | Alembic uses it if set (DDL through PgBouncer can misbehave) |
-| `JWT_SECRET` | yes | random 32+ bytes | `python -c "import secrets;print(secrets.token_urlsafe(48))"` |
+| `TEST_DATABASE_URL` | tests only | `.../agentops_test` | empty database used by `db`-marked tests; never point it at real data |
+| `JWT_SECRET` | yes in production | random 32+ bytes | `python -c "import secrets;print(secrets.token_urlsafe(48))"`; production refuses to start with the dev default |
 | `JWT_EXPIRE_MINUTES` | no | `120` | |
+| `LOGIN_RATE_LIMIT_PER_MINUTE` | no | `10` | per client IP, in memory |
+| `DATA_DIR` | no | repo `data/` | scenarios and SOP catalog location |
 | `OWNER_EMAIL` / `OWNER_PASSWORD` | for `create_owner` | — | used once by the script; do not keep the password in prod env afterwards |
 | `DEMO_LOGIN_ENABLED` | no | `true` | passwordless viewer tokens |
 | `CORS_ORIGINS` | yes | `http://localhost:5173` | prod: `https://<app>.vercel.app` (comma-separated) |

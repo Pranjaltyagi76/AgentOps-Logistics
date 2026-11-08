@@ -14,7 +14,7 @@
 | Phase | Name | Status | PROJECT.md phase |
 |---|---|---|---|
 | 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
-| 1 | Scenario system + auth | ⬜ | 1 |
+| 1 | Scenario system + auth | ✅ done (2026-11-08) | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ⬜ | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ⬜ | 3 (first half) |
 | 4 | Execution and trace | ⬜ | 4 |
@@ -78,11 +78,21 @@ Tasks
 - UI: login page, scenario list with filters/badges, detail (visible input; ground truth tab owner-only), JSON editor with validate-before-save, import/export.
 
 Acceptance
-- [ ] All 10 scenarios validate; invalid fixtures fail with precise messages
-- [ ] Seed is idempotent
-- [ ] Viewer API responses never include `ground_truth` (test)
-- [ ] Editing a locked version creates `version+1` (test)
-- [ ] Scenarios listed, filtered and inspected in UI
+- [x] All 10 scenarios validate; 19 invalid-fixture cases fail with precise messages (`tests/test_scenario_schema.py`)
+- [x] Seed is idempotent (second run reports `unchanged`; checked in CI)
+- [x] Viewer API responses never include `ground_truth` or other hidden fields (test asserts on the raw payload)
+- [x] Editing a locked version creates `version+1`; only the latest version is editable (test)
+- [x] Scenarios listed, filtered, searched, inspected, cloned, archived, edited and validated in the UI (checked in the browser as viewer and owner)
+
+Results: backend 74 tests (55 unit + 19 database), frontend 12 tests; ruff, oxlint, typecheck and build clean.
+
+Implementation notes
+- Added beyond the plan: `data/sops/catalog.json` (SOP slugs + section IDs, so scenarios can cite real
+  `sop:` evidence now; section text is Phase 2), a scenario `as_of` field (simulated "now"),
+  `POST /scenarios/{id}/restore`, recipient-name masking for viewers, login rate limiting.
+- Passwords use Argon2id; tokens are HS256 JWTs (`JWT_SECRET`, refused in production if missing or weak).
+- Generating frontend types with openapi-typescript is deferred; types are hand-written in `features/scenarios/types.ts`.
+- Local development DB: Postgres 16.2 portable binaries (no Docker); tests use `TEST_DATABASE_URL`.
 
 ---
 

@@ -131,7 +131,7 @@ Single workspace for the MVP; every core table carries a nullable `workspace_id`
 ### FR-11 Auth
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
-| FR-11.1 | Owner email/password login (bcrypt/argon2 hash), JWT bearer token | MVP | 1 |
+| FR-11.1 | Owner email/password login (Argon2id hash), JWT bearer token, rate-limited | MVP | 1 |
 | FR-11.2 | Passwordless demo-viewer login issuing a read-mostly token | MVP | 1 |
 | FR-11.3 | All write endpoints require the owner role | MVP | 1 |
 
@@ -191,7 +191,7 @@ agent marketplace · enterprise multi-tenancy · Kubernetes/microservices · mod
 | npm | bundled with Node | ✅ 11.16 |
 | WSL2 | required by Docker Desktop on Windows 11 Home | ❌ not installed — user installs (`wsl --install`, admin, reboot) |
 | Docker Desktop + Compose v2 | recent | ❌ not installed — user installs (`winget install -e --id Docker.DockerDesktop`) |
-| PostgreSQL 16 + pgvector | via Docker image `pgvector/pgvector:pg16`; fallback: Neon dev branch | pending Docker |
+| PostgreSQL 16 + pgvector | via Docker image `pgvector/pgvector:pg16`; fallback: Neon dev branch or portable binaries | ✅ Postgres 16.2 portable binaries running locally (pgvector not needed until Phase 10) |
 
 ### Accounts needed (all free)
 
@@ -211,7 +211,7 @@ pytest-cov, ruff, mypy (optional). Later: pgvector (Python), ReportLab.
 ### Frontend libraries (pinned in Phase 0 via `package-lock.json`)
 React, React DOM, Vite, TypeScript, Tailwind CSS, shadcn/ui (Radix), React Router, TanStack Query, Axios,
 Recharts, Lucide React, a JSON editor component (Monaco or CodeMirror), Vitest + Testing Library,
-oxlint, openapi-typescript (types generated from the backend OpenAPI schema; from Phase 1).
+oxlint, @uiw/react-codemirror (JSON editor). openapi-typescript (generated API types) is deferred to a later phase.
 
 ---
 
