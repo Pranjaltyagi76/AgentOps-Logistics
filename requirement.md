@@ -186,7 +186,8 @@ agent marketplace · enterprise multi-tenancy · Kubernetes/microservices · mod
 |---|---|---|
 | Git | any recent | ✅ 2.55 |
 | Python | **3.12.x** (3.14 is installed too but too new for some deps) | ✅ 3.12.10 |
-| Node.js | 20 LTS or newer | ✅ 24.18 |
+| uv | recent (manages Python deps and `backend/uv.lock`) | ✅ 0.12.23 |
+| Node.js | 22.12+ (required by Vite 8; CI uses 24) | ✅ 24.18 |
 | npm | bundled with Node | ✅ 11.16 |
 | WSL2 | required by Docker Desktop on Windows 11 Home | ❌ not installed — user installs (`wsl --install`, admin, reboot) |
 | Docker Desktop + Compose v2 | recent | ❌ not installed — user installs (`winget install -e --id Docker.DockerDesktop`) |
@@ -210,7 +211,7 @@ pytest-cov, ruff, mypy (optional). Later: pgvector (Python), ReportLab.
 ### Frontend libraries (pinned in Phase 0 via `package-lock.json`)
 React, React DOM, Vite, TypeScript, Tailwind CSS, shadcn/ui (Radix), React Router, TanStack Query, Axios,
 Recharts, Lucide React, a JSON editor component (Monaco or CodeMirror), Vitest + Testing Library,
-ESLint, openapi-typescript (types generated from the backend OpenAPI schema).
+oxlint, openapi-typescript (types generated from the backend OpenAPI schema; from Phase 1).
 
 ---
 

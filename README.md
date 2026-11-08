@@ -8,8 +8,8 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 📐 Planning complete — **Phase 0 (Foundation) not started.**
-> Nothing below marked *planned* exists yet. No benchmark results have been produced; none are shown here.
+> **Project status:** 🏗️ **Phase 0 (Foundation) built** — API skeleton, database wiring, app shell and CI.
+> Features below are *planned* unless marked otherwise. No benchmark results have been produced; none are shown here.
 
 ---
 
@@ -41,7 +41,8 @@ version fixed failures or introduced regressions.
 | Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, psycopg 3, LangGraph |
 | Database | PostgreSQL 16 (+ pgvector later for SOP retrieval) |
 | LLM | Google Gemini Flash (server-side key); optional OpenAI adapter |
-| Testing / CI | pytest, Vitest, ruff, GitHub Actions (no LLM calls in CI) |
+| Tooling | uv (Python deps + lockfile), npm, ruff, oxlint |
+| Testing / CI | pytest, Vitest + Testing Library, GitHub Actions (no LLM calls in CI) |
 | Hosting (free tiers) | Vercel (frontend), Render (backend), Neon (Postgres) |
 
 ## Documentation map
@@ -60,19 +61,19 @@ version fixed failures or introduced regressions.
 The `context/` folder is the working knowledge base used throughout development; keep it updated as the
 implementation evolves.
 
-## Repository layout (planned)
+## Repository layout
 
 ```text
 agentops-logistics/
-├── frontend/            React + Vite app            (planned — Phase 0)
-├── backend/             FastAPI app, agent, tools   (planned — Phase 0)
+├── backend/             FastAPI app (uv project, Alembic migrations, pytest)   ✅ Phase 0
+├── frontend/            React + Vite + TypeScript app (Tailwind, shadcn/ui)    ✅ Phase 0
 ├── data/
 │   ├── scenarios/       versioned scenario JSON     (planned — Phase 1)
 │   └── sops/            synthetic SOP documents     (planned — Phase 2)
-├── scripts/             seed, validate, run_benchmark (planned)
+├── scripts/             seed, validate, run_benchmark (planned — Phase 1+)
 ├── context/             design & planning docs      ✅
-├── .github/workflows/   CI                          (planned — Phase 0)
-├── docker-compose.yml   local Postgres              (planned — Phase 0)
+├── .github/workflows/   CI (backend + frontend)     ✅ Phase 0
+├── docker-compose.yml   local Postgres 16 + pgvector ✅ Phase 0
 ├── PROJECT.md           ✅
 ├── requirement.md       ✅
 └── README.md            ✅
@@ -80,27 +81,49 @@ agentops-logistics/
 
 ## Getting started
 
-> Commands become real in Phase 0; this section will be updated then.
+**Prerequisites:** Git, Python 3.12, [uv](https://docs.astral.sh/uv/), Node.js 22+ (CI uses 24), and
+Docker Desktop for the local database (Windows needs WSL2), or a free Neon Postgres URL instead.
+See [requirement.md §7](requirement.md) and [context/deployment.md](context/deployment.md).
 
-**Prerequisites:** Git, Python 3.12, Node.js 20+, Docker Desktop (Windows needs WSL2). See
-[requirement.md §7](requirement.md) and [context/deployment.md](context/deployment.md).
-
-Planned local workflow:
+**1. Database**
 
 ```powershell
-docker compose up -d db                      # Postgres 16 + pgvector
-cd backend
-py -3.12 -m venv .venv; .venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-Copy-Item .env.example .env                  # add GEMINI_API_KEY yourself (optional)
-alembic upgrade head; python ..\scripts\seed_db.py
-uvicorn app.main:app --reload                # then, in a 2nd terminal:
-cd frontend; npm install; npm run dev
+docker compose up -d db
 ```
 
-Full step-by-step instructions: [context/deployment.md §2](context/deployment.md).
+**2. Backend** (from the repo root) at http://localhost:8000, API docs at `/docs`
 
-Without a Gemini key the app still works using the rule-based agents.
+```powershell
+cd backend
+uv sync
+Copy-Item .env.example .env
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000
+```
+
+**3. Frontend** (second terminal, from the repo root) at http://localhost:5173
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+The status page shows whether the API and the database are reachable.
+
+**Checks** (the same ones CI runs):
+
+```powershell
+cd backend; uv run ruff check .; uv run ruff format --check .; uv run pytest
+```
+
+```powershell
+cd frontend; npm run lint; npm run typecheck; npm test; npm run build
+```
+
+Database-backed tests run only with `RUN_DB_TESTS=1` and a reachable `DATABASE_URL`; CI provides one.
+Full step-by-step instructions: [context/deployment.md §2](context/deployment.md).
 
 ## Development workflow
 
