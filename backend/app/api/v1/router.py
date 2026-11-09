@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, health, scenarios, taxonomy
+from app.api.v1 import agents, auth, health, scenarios, taxonomy
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
 api_router.include_router(auth.router)
 api_router.include_router(taxonomy.router)
 api_router.include_router(scenarios.router)
+api_router.include_router(agents.router)

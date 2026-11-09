@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     demo_login_enabled: bool = True
     login_rate_limit_per_minute: int = Field(default=10, ge=1)
 
+    # LLM providers (used from Phase 6). Only "configured / not configured" is ever exposed.
+    gemini_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+
     @field_validator("jwt_secret", mode="before")
     @classmethod
     def _empty_secret_means_unset(cls, value: object) -> object:
