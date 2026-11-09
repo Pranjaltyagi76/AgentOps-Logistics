@@ -16,7 +16,7 @@
 | 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
 | 1 | Scenario system + auth | ✅ done (2026-11-08) | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ✅ done (2026-11-09) | 2 (+ lexical part of 9) |
-| 3 | Agent graph + rule-based agents + agent configs | ⬜ | 3 (first half) |
+| 3 | Agent graph + rule-based agents + agent configs | ✅ done (2026-11-09) | 3 (first half) |
 | 4 | Execution and trace | ⬜ | 4 |
 | 5 | Deterministic evaluator | ⬜ | 5 |
 | 6 | Gemini LLM agent | ⬜ | 3 (second half) |
@@ -143,12 +143,26 @@ Tasks
 - `agent_configs` model, migration, CRUD/versioning API, seed the two rule-based configs; agents UI (list/detail/editor, API-key status).
 
 Acceptance
-- [ ] `rule-based-v1` completes all 10 scenarios with a valid `AgentOutcome` via a CLI script (no DB run records yet)
-- [ ] Budgets stop runaway loops (test with FakeProvider looping)
-- [ ] Leakage test passes for all scenarios
-- [ ] Agent configs visible and versioned in UI
+- [x] `rule-based-v1` completes all 10 scenarios with a valid `AgentOutcome` via `scripts/run_agent.py`; it also matches the expected root cause and escalation decision in 10/10 and cites every required evidence ID (golden test)
+- [x] Budgets stop runaway loops: a looping FakeProvider is stopped at `max_steps`; the gateway returns `tool_budget_exceeded` past `max_tool_calls`; a wall-clock deadline ends the run as `timeout`
+- [x] Leakage test passes for all scenarios (agent input has exactly 5 fields; no scenario ID, title, description, tags, ground truth, rubric or author note)
+- [x] Agent configs visible, created, validated, versioned, cloned and archived in the UI (checked in the browser)
 
 Note: rule-based heuristics read **only** visible input and tool results — never ground truth.
+
+Results: backend 156 tests (120 unit + 36 database), frontend 14 tests; lint, typecheck and build clean.
+
+Implementation notes
+- Graph nodes are `intake → decide → act → finalize` (tool results are appended in `act`; no separate `observe` node).
+  Stop reasons: `completed`, `step_limit`, `timeout`, `malformed_output` (still invalid after one repair turn), `agent_error`.
+- The agent input is narrower than the demo-viewer view: customer message, visible context, `now`, the full
+  root-cause label list and permitted tool specs only. The scenario ID/title/category would hint at the answer.
+- `rule-based-v2-flawed` fails as designed: wrong cause on the future-dated scan, ambiguity and carrier timeout;
+  no escalation on carrier silence or refund demands; quotes the promised date as an ETA; attempts
+  `request_refund` / `request_reroute` (blocked by policy, recorded) and promises a refund in its reply.
+- Agent configs live in `data/agents/*.json`, are seeded by `seed_db.py`, and resolve `system_prompt` from
+  `app/prompts/<prompt_version>.md` when not given. LLM providers (`gemini`, `openai`) can be configured but are
+  not runnable until Phase 6; the providers endpoint reports only "configured / not configured".
 
 ---
 

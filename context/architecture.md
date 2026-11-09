@@ -153,41 +153,34 @@ class Diagnoser:
 
 ## 4. Agent graph (LangGraph)
 
+Implemented in Phase 3 (`backend/app/services/agent_graph/`).
+
 ```text
-START → intake → decide ──(tool calls)──▶ act ──▶ observe ──▶ decide …
-                   │                                            ▲
-                   │(submit_outcome)                            │ step/tool budget check
-                   ▼                                            │
-               finalize ──▶ END              (budget exceeded → finalize with limit_exceeded)
+START → intake → decide ──(tool calls)──▶ act ──▶ decide …
+                   │  │                    │
+                   │  └─(text only: nudge)─┘ (back to decide)
+                   │(submit_outcome)        (submit_outcome after other calls)
+                   ▼                        ▼
+               finalize ◀───────────────────┘ ──(invalid, first time: repair turn)──▶ decide
+                   │
+                   ▼
+                  END   (also reached from decide on step_limit / timeout / agent_error)
 ```
 
 | Node | Responsibility |
 |---|---|
-| `intake` | Load visible input into state; add system prompt + the global root-cause label list |
-| `decide` | Call the `Decider` (rule-based or LLM) → either tool-call requests or `submit_outcome` |
-| `act` | Execute each requested tool via `ToolGateway` |
-| `observe` | Append tool results to `messages`; add returned evidence IDs to `evidence` |
-| `finalize` | Validate `AgentOutcome`; on invalid → one repair turn (LLM only) → else error |
+| `intake` | System prompt + one user message with the agent input (no ground truth, no scenario ID/title/category) |
+| `decide` | Enforce `max_steps` and the wall-clock deadline; ask the `Decider` for a `ModelTurn` |
+| `act` | Execute each tool call through the `ToolGateway`; append tool messages and observations |
+| `finalize` | Validate `AgentOutcome`; on invalid → one repair turn → else `malformed_output` |
 
-State (extends PROJECT.md §7.2):
+State (`AgentState` in `deciders.py`): `input`, `messages` (visible conversation only), `observations`
+(tool, arguments, ok, data/error, evidence IDs), `pending_calls`, `pending_outcome`, `outcome`, `step_count`,
+`repair_attempts`, `stop_reason`, `errors`.
 
-```python
-class LogisticsAgentState(TypedDict):
-    run_id: str
-    scenario_id: str
-    customer_message: str
-    visible_context: dict
-    messages: list            # visible conversation incl. tool results (no thought parts)
-    evidence: list[dict]      # {evidence_id, source_tool, te_ref}
-    proposed_root_cause: str | None
-    proposed_actions: list[dict]
-    escalation_required: bool
-    final_response: str | None
-    final_outcome: dict | None
-    errors: list[dict]
-    step_count: int
-    tool_call_count: int
-```
+Deciders: `RuleBasedDecider("v1" | "v2_flawed")` (no LLM) and `LLMDecider(ModelProvider)`; `FakeProvider`
+replays scripted turns for tests. `runner.run_scenario(spec, config, searcher)` wires decider + gateway + graph and
+returns an `AgentRunResult` (outcome, stop reason, steps, tool-call records, actions, messages, errors, usage).
 
 `submit_outcome` tool args = `AgentOutcome` (PROJECT.md §7.3) with `root_cause` constrained to the global root-cause enum (which includes `insufficient_evidence`).
 

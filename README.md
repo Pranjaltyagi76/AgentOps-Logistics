@@ -8,10 +8,12 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 2 done**: 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
+> **Project status:** 🏗️ **Phase 3 done**: a LangGraph agent with two rule-based (no-LLM) baselines and
+> versioned agent configs with a UI (Phase 3). Earlier: 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). The agent itself arrives in Phase 3.
+> search, and reproducible fault injection (Phase 2). Next: recording runs and traces (Phase 4).
 > Features below are *planned* unless marked otherwise. No benchmark results have been produced; none are shown here.
+
 ---
 
 ## What it is / what it is not
@@ -70,8 +72,9 @@ agentops-logistics/
 ├── frontend/            React + Vite + TypeScript app (Tailwind, shadcn/ui)    ✅ Phase 0
 ├── data/
 │   ├── scenarios/       10 versioned scenario JSON files                        ✅ Phase 1
-│   └── sops/            7 synthetic SOP documents + section catalog          ✅ Phase 2
-├── scripts/             validate_scenarios, seed_db (SOPs + scenarios), create_owner ✅
+│   ├── sops/            7 synthetic SOP documents + section catalog          ✅ Phase 2
+│   └── agents/          rule-based agent configs                               ✅ Phase 3
+├── scripts/             validate_scenarios, seed_db, create_owner, run_agent    ✅
 ├── context/             design & planning docs      ✅
 ├── .github/workflows/   CI (backend + frontend)     ✅ Phase 0
 ├── docker-compose.yml   local Postgres 16 + pgvector ✅ Phase 0
