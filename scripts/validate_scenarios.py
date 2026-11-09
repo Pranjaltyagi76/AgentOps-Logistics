@@ -1,5 +1,7 @@
 """Validate scenario JSON files against the schema and semantic rules.
 
+Also checks that the SOP files in data/sops match data/sops/catalog.json.
+
 Usage (from backend/):
     uv run python ../scripts/validate_scenarios.py              # all files in data/scenarios
     uv run python ../scripts/validate_scenarios.py path/to.json  # specific files
@@ -14,6 +16,7 @@ from pathlib import Path
 
 from app.core.config import get_settings
 from app.domain.sop_catalog import get_catalog
+from app.domain.sop_corpus import SopFormatError, check_against_catalog, load_corpus
 from app.schemas.scenario import validate_scenario
 
 
@@ -57,7 +60,18 @@ def main(argv: list[str]) -> int:
             print(f"      warning {issue.loc}: {issue.msg}")
 
     print(f"\n{len(paths) - failures}/{len(paths)} scenario files valid")
-    return 1 if failures else 0
+
+    # The SOP text files must define exactly the sections the catalog (and scenarios) cite.
+    try:
+        sop_problems = check_against_catalog(load_corpus(settings.data_dir / "sops"), catalog)
+    except SopFormatError as exc:
+        sop_problems = [str(exc)]
+    for problem in sop_problems:
+        print(f"FAIL  SOP: {problem}")
+    print(
+        "SOP files match the catalog" if not sop_problems else "SOP files do not match the catalog"
+    )
+    return 1 if failures or sop_problems else 0
 
 
 if __name__ == "__main__":
