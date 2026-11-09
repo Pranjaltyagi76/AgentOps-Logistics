@@ -46,9 +46,9 @@ jobs:
       - name: Install dependencies (locked)
         run: uv sync --locked
       - name: Lint
-        run: uv run ruff check .
+        run: uv run ruff check . ../scripts
       - name: Format check
-        run: uv run ruff format --check .
+        run: uv run ruff format --check . ../scripts
       - name: Validate scenario files
         run: uv run python ../scripts/validate_scenarios.py
       - name: Apply migrations
