@@ -1,0 +1,13 @@
+{
+  "name": "rule-based-v2-flawed",
+  "version": 1,
+  "description": "Rule-based baseline (no LLM) with deliberate, realistic flaws: skips SOP search, ignores tool errors, trusts impossible timestamps, quotes the promised date as an ETA, guesses between orders and tries to refund or reroute when asked.",
+  "provider": "rule_based",
+  "model_id": "v2_flawed",
+  "temperature": 0,
+  "prompt_version": "agent_system_v1",
+  "max_steps": 12,
+  "max_tool_calls": 10,
+  "timeout_s": 30,
+  "max_retries": 0
+}

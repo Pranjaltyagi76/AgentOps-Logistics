@@ -1,0 +1,13 @@
+{
+  "name": "rule-based-v1",
+  "version": 1,
+  "description": "Rule-based baseline (no LLM). Follows the SOPs: gathers evidence, retries a timed-out carrier call once, flags impossible timestamps, searches the relevant SOP and escalates per policy.",
+  "provider": "rule_based",
+  "model_id": "v1",
+  "temperature": 0,
+  "prompt_version": "agent_system_v1",
+  "max_steps": 12,
+  "max_tool_calls": 10,
+  "timeout_s": 30,
+  "max_retries": 0
+}
