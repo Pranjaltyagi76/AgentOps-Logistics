@@ -139,7 +139,7 @@ Single workspace for the MVP; every core table carries a nullable `workspace_id`
 | ID | Requirement | Priority | Phase |
 |---|---|---|---|
 | FR-12.1 | Lexical SOP search (Postgres full-text) restricted to the scenario's permitted documents | MVP | 2 |
-| FR-12.2 | Original synthetic SOP corpus (no proprietary/scraped content) | MVP | 2 |
+| FR-12.2 | Original synthetic SOP corpus (no proprietary/scraped content): 7 documents in `data/sops/` | MVP | 2 |
 | FR-12.3 | Embedding retrieval (Gemini embeddings + pgvector), lexical fallback when not configured | Full | 10 |
 | FR-12.4 | Evaluator checks that cited SOP IDs were actually retrieved in the run | MVP | 5 |
 

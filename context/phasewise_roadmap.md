@@ -15,7 +15,7 @@
 |---|---|---|---|
 | 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
 | 1 | Scenario system + auth | ✅ done (2026-11-08) | 1 |
-| 2 | Mock logistics tools, policy, SOP search | ⬜ | 2 (+ lexical part of 9) |
+| 2 | Mock logistics tools, policy, SOP search | ✅ done (2026-11-09) | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ⬜ | 3 (first half) |
 | 4 | Execution and trace | ⬜ | 4 |
 | 5 | Deterministic evaluator | ⬜ | 5 |
@@ -109,10 +109,23 @@ Tasks
 - Scenario-level fault injection: `{"tool": "get_carrier_status", "error": "timeout", "latency_ms": 3000}`.
 
 Acceptance
-- [ ] Each read tool returns seeded data + correct evidence IDs (golden unit tests)
-- [ ] Invalid args → `invalid_arguments`; non-permitted → `tool_not_permitted`; gated → `policy_denied`; budget → `tool_budget_exceeded`
-- [ ] SOP search returns only permitted documents, ranked, with section IDs
-- [ ] Fault injection reproducible
+- [x] Each read tool returns seeded data + correct evidence IDs; a golden test reads every scenario through the tools and confirms all required record evidence is reachable
+- [x] Invalid args → `invalid_arguments` (with field names); non-permitted → `tool_not_permitted`; unknown → `unknown_tool`; gated → `policy_denied` (blocked, recorded, nothing executed); budget → `tool_budget_exceeded` (every attempt counts)
+- [x] SOP search returns only permitted documents, ranked, with section IDs; 7 natural-language queries rank the right section first, and every required `sop:` evidence ID is found by its section title
+- [x] Fault injection reproducible (two independent runs of the carrier-timeout scenario behave identically; per-call faults supported)
+
+Results: backend 128 tests (99 unit + 29 database); ruff clean; seeding SOPs + scenarios is idempotent.
+
+Implementation notes
+- Code: `app/services/tools/` (`schemas`, `data_view`, `handlers`, `registry`, `gateway`), `app/domain/policy.py`,
+  `app/domain/sop_corpus.py`, `app/services/sops/service.py`; migration 0003 adds `documents` and `document_chunks`
+  (generated `tsvector` column, title weighted above body, GIN index).
+- Search ORs the query words (`to_tsquery('english', 'a | b')`) and ranks with `ts_rank_cd`, because agent queries
+  are long and AND-matching would often return nothing.
+- policy-v1 also rejects `critical` escalations whose reason is not a safety or legal concern.
+- Every call (including rejected ones) is a `ToolCallRecord` passed to an observer; Phase 4 plugs the trace collector in there.
+- Simulated latency uses an injectable `sleep`, so tests don't wait; real runs do.
+- No UI in this phase: tools are exercised by the agent from Phase 3 onwards.
 
 ---
 

@@ -206,13 +206,26 @@ class LogisticsAgentState(TypedDict):
 | `request_reroute(payload)` | mock_write | **policy-gated, denied by default** | — |
 | `request_refund(payload)` | mock_write | **policy-gated, denied by default** | — |
 
-`PolicyEngine` rules (pure, versioned `policy-v1`):
-- Gated tools are denied unless the scenario's `policy.authorizations` explicitly authorizes them (none do in MVP).
-- `request_escalation` requires a non-empty `reason` and a `severity` in an enum.
-- `send_customer_message` text is checked by the response-constraint checkers *at evaluation time* (not blocked at call time — we score what the agent tried to say).
-- Every denial returns `ToolError(code="policy_denied", rule_id=…)` to the agent and emits a `policy_denied` trace event.
+Implemented in Phase 2 (`backend/app/services/tools/`, registry version `tools-v1`). Argument models forbid
+unknown fields; `tool_specs()` turns them into JSON-schema tool descriptions for the agent. Write-tool
+arguments: `create_support_ticket{category, summary, shipment_id?}`, `request_escalation{reason, severity,
+shipment_id?}`, `send_customer_message{message, channel}`, `request_reroute{shipment_id, new_address, reason}`,
+`request_refund{shipment_id, amount_inr, reason}`. Tool errors use the codes `unknown_tool`,
+`tool_not_permitted`, `tool_budget_exceeded`, `invalid_arguments`, `policy_denied`, `not_found`, `timeout`,
+`malformed_response`, `unavailable`.
 
-Mock writes are stored only in the run's trace/outbox; nothing is sent anywhere.
+`PolicyEngine` rules (pure, versioned `policy-v1`, `backend/app/domain/policy.py`):
+- Gated tools (`request_refund`, `request_reroute`) are denied unless explicitly authorized for the run (none are in the MVP benchmark).
+- `request_escalation` with severity `critical` is denied unless the reason mentions a safety or legal concern.
+- Required fields and enums (`reason`, `severity`, ...) are enforced by argument validation before policy runs.
+- `send_customer_message` text is checked by the response-constraint checkers *at evaluation time* (not blocked at call time — we score what the agent tried to say).
+- Every denial returns `ToolError(code="policy_denied", details.rule_id=…)` to the agent, executes nothing, and is recorded as a `ToolCallRecord` with `policy_rule_id` (a `policy_denied` trace event from Phase 4).
+
+Fault injection: a scenario's `fault_injection` entry applies to executed calls of one tool (`calls: "all"` or a list
+of 1-based call numbers), sleeps `latency_ms` (injectable for tests), then returns the typed error. Calls rejected
+earlier in the pipeline do not count toward fault numbering.
+
+Mock writes are recorded in the run's `ActionLog` (`action:<kind>:<n>`); nothing is sent anywhere.
 
 ## 6. Trace event schema
 
