@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, phase: 9 },
   { label: 'Scenarios', icon: ListChecks, to: '/scenarios' },
   { label: 'Agents', icon: Bot, to: '/agents' },
-  { label: 'Runs', icon: PlayCircle, phase: 4 },
+  { label: 'Runs', icon: PlayCircle, to: '/runs' },
   { label: 'Benchmarks', icon: FlaskConical, phase: 8 },
   { label: 'Reports', icon: FileBarChart, phase: 9 },
   { label: 'Settings', icon: Settings, phase: 6 },

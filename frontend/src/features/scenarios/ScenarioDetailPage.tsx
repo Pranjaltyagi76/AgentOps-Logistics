@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ArrowLeft, Copy, Download, EyeOff, Pencil } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, Copy, Download, EyeOff, Pencil, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
@@ -93,8 +93,14 @@ export function ScenarioDetailPage() {
             {s.is_locked ? <LockedBadge /> : null}
           </div>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {!archived ? (
+            <Button size="sm" variant="secondary" asChild>
+              <Link to={`/runs/new?scenario=${s.id}`}><Play aria-hidden /> Run</Link>
+            </Button>
+          ) : null}
         {isOwner ? (
-          <div className="flex flex-wrap gap-2">
+          <>
             {s.can_edit ? (
               <Button size="sm" asChild>
                 <Link to={`/scenarios/${s.id}/edit`}><Pencil aria-hidden /> Edit</Link>
@@ -135,8 +141,9 @@ export function ScenarioDetailPage() {
               {archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
               {archived ? 'Restore' : 'Archive'}
             </Button>
-          </div>
+          </>
         ) : null}
+        </div>
       </header>
 
       {notice ? (

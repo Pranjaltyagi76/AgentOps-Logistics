@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, ArrowLeft, Copy, Pencil } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeft, Copy, Pencil, Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
@@ -74,8 +74,14 @@ export function AgentDetailPage() {
             {a.is_locked ? <LockedBadge /> : null}
           </div>
         </div>
+        <div className="flex flex-wrap gap-2">
+          {!archived && c.provider === 'rule_based' ? (
+            <Button size="sm" variant="secondary" asChild>
+              <Link to={`/runs/new?agent=${a.id}`}><Play aria-hidden /> Run</Link>
+            </Button>
+          ) : null}
         {isOwner ? (
-          <div className="flex flex-wrap gap-2">
+          <>
             {a.can_edit ? (
               <Button size="sm" asChild>
                 <Link to={`/agents/${a.id}/edit`}><Pencil aria-hidden /> Edit</Link>
@@ -103,8 +109,9 @@ export function AgentDetailPage() {
               {archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
               {archived ? 'Restore' : 'Archive'}
             </Button>
-          </div>
+          </>
         ) : null}
+        </div>
       </header>
 
       {notice ? <Alert><AlertDescription>{notice}</AlertDescription></Alert> : null}

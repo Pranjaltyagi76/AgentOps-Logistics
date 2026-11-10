@@ -3,6 +3,9 @@ import { createBrowserRouter, Navigate } from 'react-router'
 import { AgentDetailPage } from '@/features/agents/AgentDetailPage'
 import { AgentListPage } from '@/features/agents/AgentListPage'
 import { LoginPage } from '@/features/auth/LoginPage'
+import { RunDetailPage } from '@/features/runs/RunDetailPage'
+import { RunLauncherPage } from '@/features/runs/RunLauncherPage'
+import { RunListPage } from '@/features/runs/RunListPage'
 import { ScenarioDetailPage } from '@/features/scenarios/ScenarioDetailPage'
 import { ScenarioListPage } from '@/features/scenarios/ScenarioListPage'
 import { StatusPage } from '@/features/status/StatusPage'
@@ -31,6 +34,9 @@ export const routes = [
       { path: 'agents/new', element: <AgentEditorRoute mode="create" /> },
       { path: 'agents/:id', element: <AgentDetailPage /> },
       { path: 'agents/:id/edit', element: <AgentEditorRoute mode="edit" /> },
+      { path: 'runs', element: <RunListPage /> },
+      { path: 'runs/new', element: <RunLauncherPage /> },
+      { path: 'runs/:id', element: <RunDetailPage /> },
       { path: 'status', element: <StatusPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
