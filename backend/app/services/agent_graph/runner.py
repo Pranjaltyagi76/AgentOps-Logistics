@@ -11,7 +11,7 @@ from app.schemas.agent_config import AgentConfigSpec
 from app.schemas.scenario import ScenarioSpec
 from app.services.agent_graph.agent_input import build_agent_input
 from app.services.agent_graph.deciders import Decider
-from app.services.agent_graph.graph import AgentLimits, AgentRunResult, run_agent
+from app.services.agent_graph.graph import AgentLimits, AgentRunResult, RunHooks, run_agent
 from app.services.agent_graph.rule_based import Profile, RuleBasedDecider
 from app.services.sops.service import SopSearcher
 from app.services.tools.data_view import ScenarioDataView
@@ -38,6 +38,7 @@ def run_scenario(
     observer: ToolObserver | None = None,
     sleep: Callable[[float], None] | None = None,
     decider: Decider | None = None,
+    hooks: RunHooks | None = None,
 ) -> AgentRunResult:
     gateway = ToolGateway.for_scenario(
         ScenarioDataView.from_spec(scenario),
@@ -53,4 +54,5 @@ def run_scenario(
         gateway,
         system_prompt=config.system_prompt or "",
         limits=AgentLimits(max_steps=config.max_steps, timeout_s=config.timeout_s),
+        hooks=hooks,
     )

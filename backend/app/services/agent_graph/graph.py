@@ -16,6 +16,7 @@ returns. No hidden reasoning is requested or stored (PROJECT.md §5 FR-05).
 
 import json
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -34,6 +35,30 @@ NUDGE = "Respond with tool calls, or call submit_outcome to finish the case."
 class AgentLimits:
     max_steps: int = 8
     timeout_s: float = 60.0
+
+
+EventSink = Callable[[str, str | None, dict[str, Any]], None]
+
+
+def _no_event(event_type: str, node: str | None, payload: dict[str, Any]) -> None:
+    return None
+
+
+def _never_stop() -> str | None:
+    return None
+
+
+@dataclass(frozen=True)
+class RunHooks:
+    """Lets the run executor observe the loop and stop it (Phase 4).
+
+    - on_event(event_type, node, payload): called for agent turns, limits and outcomes
+      (tool calls are observed separately through the gateway observer).
+    - should_stop(): returns a stop reason ("cancelled" / "timeout") to end the run early.
+    """
+
+    on_event: EventSink = _no_event
+    should_stop: Callable[[], str | None] = _never_stop
 
 
 @dataclass
@@ -65,8 +90,17 @@ def build_agent_graph(
     limits: AgentLimits,
     deadline: float,
     usage_log: list[dict[str, Any]],
+    hooks: RunHooks | None = None,
 ) -> Any:
+    hooks = hooks or RunHooks()
+
+    def stop(reason: str, **details: Any) -> dict[str, Any]:
+        hooks.on_event("limit_exceeded", "decide", {"reason": reason, **details})
+        return {"stop_reason": reason}
+
     def intake(state: AgentState) -> dict[str, Any]:
+        # Recorded verbatim so anyone can audit exactly what the agent was told.
+        hooks.on_event("agent_input", "intake", state["input"])
         agent_input = dict(state["input"])
         tools = agent_input.pop("tools")
         user = {
@@ -78,10 +112,14 @@ def build_agent_graph(
         return {"messages": [{"role": "system", "content": system_prompt}, user]}
 
     def decide(state: AgentState) -> dict[str, Any]:
+        external = hooks.should_stop()
+        if external is not None:
+            return stop(external)
         if time.monotonic() > deadline:
-            return {"stop_reason": "timeout"}
+            return stop("timeout", timeout_s=limits.timeout_s)
         if state["step_count"] >= limits.max_steps:
-            return {"stop_reason": "step_limit"}
+            return stop("step_limit", max_steps=limits.max_steps)
+        started = time.monotonic()
         try:
             turn = decider.decide(state)
         except Exception as exc:  # the agent under test failing is a result, not a crash
@@ -89,6 +127,18 @@ def build_agent_graph(
             return {"stop_reason": "agent_error", "errors": [*state["errors"], error]}
         if turn.usage is not None:
             usage_log.append(turn.usage.model_dump())
+        hooks.on_event(
+            "agent_turn",
+            "decide",
+            {
+                "step": state["step_count"] + 1,
+                "text": turn.text,
+                "tool_calls": [c.model_dump(mode="json") for c in turn.tool_calls],
+                "usage": turn.usage.model_dump() if turn.usage else None,
+                "model_id": turn.model_id,
+                "duration_ms": round((time.monotonic() - started) * 1000),
+            },
+        )
 
         messages = [*state["messages"], _turn_to_message(turn)]
         outcome_calls = [c for c in turn.tool_calls if c.name == SUBMIT_OUTCOME]
@@ -112,6 +162,16 @@ def build_agent_graph(
         observations = list(state["observations"])
         messages = list(state["messages"])
         for call in state["pending_calls"]:
+            external = hooks.should_stop()
+            if external is not None:
+                hooks.on_event("limit_exceeded", "act", {"reason": external})
+                return {
+                    "observations": observations,
+                    "messages": messages,
+                    "pending_calls": [],
+                    "pending_outcome": None,
+                    "stop_reason": external,
+                }
             outcome = gateway.call(call["name"], call["arguments"])
             body = outcome.model_dump(mode="json")
             observations.append(
@@ -148,7 +208,17 @@ def build_agent_graph(
                 for e in exc.errors()
             ]
             error = {"stage": "finalize", "type": "invalid_outcome", "problems": problems}
-            if state["repair_attempts"] >= MAX_REPAIR_ATTEMPTS:
+            final_attempt = state["repair_attempts"] >= MAX_REPAIR_ATTEMPTS
+            hooks.on_event(
+                "outcome_invalid",
+                "finalize",
+                {
+                    "problems": problems,
+                    "arguments": pending.get("arguments"),
+                    "final": final_attempt,
+                },
+            )
+            if final_attempt:
                 return {"stop_reason": "malformed_output", "errors": [*state["errors"], error]}
             repair = {
                 "role": "tool",
@@ -164,7 +234,9 @@ def build_agent_graph(
                 "messages": [*state["messages"], repair],
                 "errors": [*state["errors"], error],
             }
-        return {"outcome": outcome.model_dump(mode="json"), "stop_reason": "completed"}
+        submitted = outcome.model_dump(mode="json")
+        hooks.on_event("outcome_submitted", "finalize", submitted)
+        return {"outcome": submitted, "stop_reason": "completed"}
 
     def after_decide(state: AgentState) -> str:
         if state["stop_reason"] is not None:
@@ -176,7 +248,9 @@ def build_agent_graph(
         return "decide"
 
     def after_act(state: AgentState) -> str:
-        return "finalize" if state["pending_outcome"] is not None else "decide"
+        if state["stop_reason"] is not None or state["pending_outcome"] is not None:
+            return "finalize"
+        return "decide"
 
     def after_finalize(state: AgentState) -> str:
         return END if state["stop_reason"] is not None else "decide"
@@ -201,6 +275,7 @@ def run_agent(
     *,
     system_prompt: str,
     limits: AgentLimits | None = None,
+    hooks: RunHooks | None = None,
 ) -> AgentRunResult:
     limits = limits or AgentLimits()
     started = time.monotonic()
@@ -212,6 +287,7 @@ def run_agent(
         limits=limits,
         deadline=started + limits.timeout_s,
         usage_log=usage_log,
+        hooks=hooks,
     )
     initial: AgentState = {
         "input": agent_input.model_dump(mode="json"),

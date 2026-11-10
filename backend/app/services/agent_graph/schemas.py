@@ -71,4 +71,5 @@ StopReason = Literal[
     "timeout",  # wall-clock deadline passed
     "malformed_output",  # outcome still invalid after the repair attempt
     "agent_error",  # the decider raised
+    "cancelled",  # stopped by the run executor (user cancel)
 ]

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import OwnerDep, Principal, PrincipalDep, SettingsDep
+from app.core.redaction import redact_pii
 from app.db.models import Scenario
 from app.db.session import get_db
 from app.domain.sop_catalog import get_catalog
@@ -56,16 +57,9 @@ def _summary(row: Scenario) -> ScenarioSummaryOut:
     )
 
 
-def _mask_name(name: str) -> str:
-    return " ".join(part[0] + "*" * (len(part) - 1) for part in name.split() if part)
-
-
 def _redact_people(visible: dict[str, Any]) -> dict[str, Any]:
     """Masks recipient names for viewers (data is synthetic; this demonstrates NFR-06)."""
-    for shipment in visible.get("mock_data", {}).get("shipments", []):
-        if shipment.get("recipient_name"):
-            shipment["recipient_name"] = _mask_name(shipment["recipient_name"])
-    return visible
+    return redact_pii(visible)
 
 
 def _detail(service: ScenarioService, row: Scenario, principal: Principal) -> ScenarioDetailOut:
