@@ -18,6 +18,7 @@ from app.db.models import AgentConfig, Run, Scenario, TraceEvent
 from app.domain.policy import POLICY_VERSION
 from app.domain.taxonomy import TAXONOMY_VERSION
 from app.schemas.agent_config import AgentConfigSpec
+from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import RunExecutor
 from app.services.execution.worker import execute_run, mark_overrun
@@ -100,6 +101,7 @@ def sweep_orphaned_runs(session_factory: SessionFactory) -> int:
         TraceCollector(run.id, session_factory, start_seq=last_seqs.get(run.id, 0)).emit(
             "run_error", error=error
         )
+        evaluate_run_safely(session_factory, run.id)  # verdict ERROR: excluded from metrics
     return len(orphans)
 
 

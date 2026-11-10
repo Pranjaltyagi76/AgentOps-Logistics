@@ -11,57 +11,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.core.config import DEFAULT_DATA_DIR
 from app.db.models import AgentConfig, Run, Scenario, TraceEvent
-from app.domain.sop_corpus import load_corpus
 from app.services.agents.service import AgentConfigService
 from app.services.execution.executor import CancelToken
 from app.services.execution.service import sweep_orphaned_runs, try_consume
 from app.services.execution.worker import execute_run, mark_overrun
-from app.services.scenarios.service import ScenarioService
-from app.services.sops.service import sync_corpus
 from tests.conftest import ManualExecutor
+from tests.helpers import launch, trace
 
 pytestmark = pytest.mark.db
 
 H = dict[str, str]
 RUNS = "/api/v1/runs"
-
-
-@pytest.fixture
-def ids(
-    db_session: Session, scenario_files: dict[str, dict[str, Any]], catalog: Any
-) -> dict[str, uuid.UUID]:
-    """Seeds SOPs, scenarios and agents into the test transaction; returns name -> row id."""
-    sync_corpus(db_session, load_corpus(DEFAULT_DATA_DIR / "sops"))
-    ScenarioService(db_session, catalog).import_many(list(scenario_files.values()))
-    agents = [
-        json.loads(p.read_text()) for p in sorted((DEFAULT_DATA_DIR / "agents").glob("*.json"))
-    ]
-    AgentConfigService(db_session).import_many(agents)
-    result = {s.scenario_key: s.id for s in db_session.scalars(select(Scenario))}
-    result |= {a.name: a.id for a in db_session.scalars(select(AgentConfig))}
-    return result
-
-
-def launch(
-    api: TestClient,
-    headers: H,
-    ids: dict[str, uuid.UUID],
-    scenario: str,
-    agent: str = "rule-based-v1",
-):  # type: ignore[no-untyped-def]
-    return api.post(
-        RUNS,
-        json={"scenario_id": str(ids[scenario]), "agent_config_id": str(ids[agent])},
-        headers=headers,
-    )
-
-
-def trace(api: TestClient, headers: H, run_id: str, **params: Any) -> list[dict[str, Any]]:
-    response = api.get(f"{RUNS}/{run_id}/trace", params=params, headers=headers)
-    assert response.status_code == 200, response.text
-    return response.json()["events"]
 
 
 # --- lifecycle and trace -------------------------------------------------------------------
@@ -85,7 +46,7 @@ def test_launch_runs_to_completion_with_a_complete_trace(
     assert (
         run["versions"]["policy"] == "policy-v1" and run["versions"]["tool_registry"] == "tools-v1"
     )
-    assert run["verdict"] is None and run["score"] is None  # evaluator arrives in Phase 5
+    assert (run["verdict"], run["score"]) == ("PASS", 100.0)  # scored right after the run
 
     events = trace(api, viewer_headers, run_id)
     assert [e["seq"] for e in events] == list(range(1, len(events) + 1))

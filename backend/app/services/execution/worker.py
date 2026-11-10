@@ -16,6 +16,7 @@ from app.schemas.agent_config import AgentConfigSpec
 from app.schemas.scenario import ScenarioSpec
 from app.services.agent_graph.graph import AgentRunResult, RunHooks
 from app.services.agent_graph.runner import run_scenario
+from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import CancelToken
 from app.services.sops.service import PerCallSopSearcher
@@ -79,6 +80,7 @@ def mark_overrun(run_id: uuid.UUID, session_factory: SessionFactory) -> None:
         finished_at=finished,
     ):
         logger.warning("Run %s marked timed out by the watchdog", run_id)
+        evaluate_run_safely(session_factory, run_id)
 
 
 def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionFactory) -> None:
@@ -150,6 +152,7 @@ def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionF
             finished_at=_now(),
         ):
             collector.emit("run_finished", output={"status": "errored", "error_kind": "infra"})
+            evaluate_run_safely(session_factory, run_id)
         return
 
     status, error_kind = _STATUS_FOR_STOP.get(result.stop_reason, ("errored", "agent"))
@@ -181,6 +184,7 @@ def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionF
             "run_finished",
             output={"status": status, "stop_reason": result.stop_reason, "latency_ms": latency_ms},
         )
+        evaluate_run_safely(session_factory, run_id)
     else:
         # The watchdog or a cancel finalised the run first; keep that state.
         collector.emit(

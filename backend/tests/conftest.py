@@ -10,6 +10,7 @@ import contextlib
 import copy
 import json
 import os
+import uuid
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -19,16 +20,21 @@ from alembic import command
 from alembic.config import Config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from sqlalchemy import Connection, Engine, create_engine
+from sqlalchemy import Connection, Engine, create_engine, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config import DEFAULT_DATA_DIR, Settings, get_settings
+from app.db.models import AgentConfig, Scenario
 from app.db.session import get_db
 from app.domain.sop_catalog import SopCatalog, get_catalog
+from app.domain.sop_corpus import load_corpus
 from app.main import create_app
+from app.services.agents.service import AgentConfigService
 from app.services.auth.service import upsert_owner
 from app.services.execution.executor import CancelToken, InlineExecutor
+from app.services.scenarios.service import ScenarioService
+from app.services.sops.service import sync_corpus
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 SCENARIO_DIR = DEFAULT_DATA_DIR / "scenarios"
@@ -274,3 +280,19 @@ def viewer_headers(api: TestClient) -> dict[str, str]:
     response = api.post("/api/v1/auth/demo")
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
+@pytest.fixture
+def ids(
+    db_session: Session, scenario_files: dict[str, dict[str, Any]], catalog: Any
+) -> dict[str, uuid.UUID]:
+    """Seeds SOPs, scenarios and agents into the test transaction; returns name -> row id."""
+    sync_corpus(db_session, load_corpus(DEFAULT_DATA_DIR / "sops"))
+    ScenarioService(db_session, catalog).import_many(list(scenario_files.values()))
+    agents = [
+        json.loads(p.read_text()) for p in sorted((DEFAULT_DATA_DIR / "agents").glob("*.json"))
+    ]
+    AgentConfigService(db_session).import_many(agents)
+    result = {s.scenario_key: s.id for s in db_session.scalars(select(Scenario))}
+    result |= {a.name: a.id for a in db_session.scalars(select(AgentConfig))}
+    return result

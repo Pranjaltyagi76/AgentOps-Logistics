@@ -12,10 +12,12 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.deps import PrincipalDep, SettingsDep
+from app.api.deps import OwnerDep, PrincipalDep, SettingsDep
+from app.core.errors import AppError
 from app.core.redaction import redact_pii
-from app.db.models import Run, TraceEvent
+from app.db.models import EvaluationResult, Run, TraceEvent
 from app.db.session import get_db
+from app.services.evaluation.service import evaluate_run, latest_evaluation
 from app.services.execution.service import RunFilters, RunService
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -203,3 +205,91 @@ def get_trace(
 @router.post("/{run_id}/cancel", response_model=RunDetailOut)
 def cancel_run(service: ServiceDep, principal: PrincipalDep, run_id: uuid.UUID) -> RunDetailOut:
     return _detail(service, service.cancel(run_id, principal))
+
+
+# --- evaluation (Phase 5) -------------------------------------------------------------------
+
+# Fields that reveal the hidden ground truth; only the owner receives them.
+_OWNER_ONLY_ASSERTION_FIELDS = ("expected", "actual", "detail")
+
+
+class AssertionOut(BaseModel):
+    id: str
+    component: str
+    passed: bool | None
+    summary: str
+    gate: bool
+    weighted: bool
+    cites: list[str]
+    expected: Any = None
+    actual: Any = None
+    detail: str | None = None
+
+
+class ComponentOut(BaseModel):
+    name: str
+    weight: int
+    score: float | None
+    enabled: bool
+    detail: str
+
+
+class EvaluationOut(BaseModel):
+    run_id: uuid.UUID
+    evaluator_version: str
+    verdict: str
+    score: float | None
+    task_success: bool
+    pass_threshold: int
+    components: list[ComponentOut]
+    gate_failures: list[str]
+    assertions: list[AssertionOut]
+    shows_expected_values: bool
+    created_at: datetime
+
+
+def _evaluation_out(row: EvaluationResult, owner: bool) -> EvaluationOut:
+    assertions = []
+    for raw in row.assertions_json:
+        item = dict(raw)
+        if not owner:
+            for key in _OWNER_ONLY_ASSERTION_FIELDS:
+                item.pop(key, None)
+        assertions.append(AssertionOut(**item))
+    return EvaluationOut(
+        run_id=row.run_id,
+        evaluator_version=row.evaluator_version,
+        verdict=row.verdict,
+        score=row.score,
+        task_success=row.task_success,
+        pass_threshold=row.pass_threshold,
+        components=[ComponentOut(**c) for c in row.score_breakdown_json],
+        gate_failures=list(row.policy_violations_json),
+        assertions=assertions,
+        shows_expected_values=owner,
+        created_at=row.created_at,
+    )
+
+
+@router.get("/{run_id}/evaluation", response_model=EvaluationOut)
+def get_evaluation(
+    service: ServiceDep, principal: PrincipalDep, run_id: uuid.UUID
+) -> EvaluationOut:
+    run = service.get(run_id)
+    row = latest_evaluation(service.db, run_id)
+    if row is None:
+        reason = (
+            "the run has not finished" if run.is_active else f"{run.status} runs are not scored"
+        )
+        raise AppError(f"No evaluation: {reason}", code="evaluation_not_found", status_code=404)
+    return _evaluation_out(row, principal.is_owner)
+
+
+@router.post("/{run_id}/evaluate", response_model=EvaluationOut)
+def reevaluate(service: ServiceDep, _: OwnerDep, run_id: uuid.UUID) -> EvaluationOut:
+    """Re-scores a finished run with the current evaluator version."""
+    service.get(run_id)
+    row = evaluate_run(service.db, run_id)
+    if row is None:
+        raise AppError("This run cannot be scored", code="evaluation_not_possible", status_code=409)
+    return _evaluation_out(row, True)
