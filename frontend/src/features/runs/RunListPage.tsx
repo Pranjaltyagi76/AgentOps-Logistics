@@ -12,6 +12,7 @@ import { formatDateTime, humanize } from '@/lib/format'
 
 import { useRuns } from './api'
 import { RunStatusBadge } from './RunStatusBadge'
+import { VerdictBadge } from './VerdictBadge'
 
 const ALL = '__all__'
 const STATUSES = ['queued', 'running', 'completed', 'timed_out', 'cancelled', 'errored']
@@ -56,6 +57,8 @@ export function RunListPage() {
                 <TableHead>Scenario</TableHead>
                 <TableHead>Agent</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Verdict</TableHead>
+                <TableHead className="text-right">Score</TableHead>
                 <TableHead>Root cause given</TableHead>
                 <TableHead className="text-right">Tool calls</TableHead>
                 <TableHead className="text-right">Latency</TableHead>
@@ -64,7 +67,7 @@ export function RunListPage() {
             <TableBody>
               {runs.isPending
                 ? Array.from({ length: 4 }, (_, i) => (
-                    <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                    <TableRow key={i}><TableCell colSpan={9}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                   ))
                 : rows.map((run) => (
                     <TableRow key={run.id} className="cursor-pointer" onClick={() => navigate(`/runs/${run.id}`)}>
@@ -76,6 +79,8 @@ export function RunListPage() {
                       <TableCell className="font-mono text-xs">{run.scenario_key} v{run.scenario_version}</TableCell>
                       <TableCell className="font-mono text-xs">{run.agent_name} v{run.agent_version}</TableCell>
                       <TableCell><RunStatusBadge status={run.status} /></TableCell>
+                      <TableCell><VerdictBadge verdict={run.verdict} /></TableCell>
+                      <TableCell className="text-right tabular-nums">{run.score ?? '—'}</TableCell>
                       <TableCell className="font-mono text-xs">{run.root_cause ?? '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">{run.tool_call_count ?? '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">
@@ -85,7 +90,7 @@ export function RunListPage() {
                   ))}
               {!runs.isPending && rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                     No runs yet. Start one with “New run”.
                   </TableCell>
                 </TableRow>

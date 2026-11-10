@@ -183,7 +183,14 @@ export function TraceTimeline({ events }: { events: TraceEvent[] }) {
         const Icon = meta.icon
         const offset = Date.parse(event.timestamp) - start
         return (
-          <li key={event.seq} className={cn('rounded-lg border-l-4 border bg-card p-3', TONE[meta.tone])}>
+          <li
+            key={event.seq}
+            id={`te-${event.seq}`}
+            className={cn(
+              'scroll-mt-20 rounded-lg border border-l-4 bg-card p-3 target:ring-2 target:ring-primary',
+              TONE[meta.tone],
+            )}
+          >
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">{event.ref}</code>
               <Icon className="size-3.5" aria-hidden />

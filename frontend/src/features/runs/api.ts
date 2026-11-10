@@ -2,7 +2,14 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { api } from '@/lib/api'
 
-import { ACTIVE_STATUSES, type RunDetail, type RunPage, type RunStatus, type Trace } from './types'
+import {
+  ACTIVE_STATUSES,
+  type Evaluation,
+  type RunDetail,
+  type RunPage,
+  type RunStatus,
+  type Trace,
+} from './types'
 
 /** Poll fast while a run is queued/running; stop once it reaches a final state. */
 const ACTIVE_POLL_MS = 1500
@@ -60,5 +67,15 @@ export function useCancelRun() {
   return useMutation({
     mutationFn: async (id: string) => (await api.post<RunDetail>(`/runs/${id}/cancel`)).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: runKeys.all }),
+  })
+}
+
+/** Available once a run has finished (cancelled runs are not scored). */
+export function useEvaluation(id: string, finished: boolean) {
+  return useQuery({
+    queryKey: ['runs', 'evaluation', id],
+    queryFn: async () => (await api.get<Evaluation>(`/runs/${id}/evaluation`)).data,
+    enabled: finished,
+    retry: false,
   })
 }

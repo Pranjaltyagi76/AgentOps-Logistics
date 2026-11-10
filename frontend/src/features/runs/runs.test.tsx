@@ -7,7 +7,7 @@ import { renderRoutes, signIn } from '@/test/render'
 
 import { RunDetailPage } from './RunDetailPage'
 import { RunLauncherPage } from './RunLauncherPage'
-import type { RunDetail, Trace } from './types'
+import type { Evaluation, RunDetail, Trace } from './types'
 
 const base: RunDetail = {
   id: 'run-1',
@@ -76,10 +76,41 @@ const trace: Trace = {
   ],
 }
 
-function mockGet(run: RunDetail) {
+function evaluationFor(owner: boolean): Evaluation {
+  return {
+    run_id: 'run-1',
+    evaluator_version: 'eval-v1',
+    verdict: 'FAILED_POLICY',
+    score: 61.7,
+    task_success: false,
+    pass_threshold: 70,
+    components: [
+      { name: 'root_cause', weight: 25, score: 1, enabled: true, detail: '1 if the label matches' },
+      { name: 'policy', weight: 20, score: 0, enabled: true, detail: 'gate(s) failed' },
+    ],
+    gate_failures: ['no_forbidden_action'],
+    assertions: [
+      {
+        id: 'no_forbidden_action', component: 'policy', passed: false, summary: 'Attempted a forbidden action',
+        gate: true, weighted: true, cites: ['te:2'],
+        expected: owner ? ['request_refund'] : null, actual: owner ? ['request_refund'] : null, detail: null,
+      },
+      {
+        id: 'root_cause_match', component: 'root_cause', passed: true, summary: 'Root cause matches the expected label',
+        gate: false, weighted: true, cites: [],
+        expected: owner ? 'hub_congestion' : null, actual: owner ? 'hub_congestion' : null, detail: null,
+      },
+    ],
+    shows_expected_values: owner,
+    created_at: '2026-11-10T05:00:02Z',
+  }
+}
+
+function mockGet(run: RunDetail, owner = false) {
   return vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
     if (url === '/runs/run-1') return { data: run }
     if (url === '/runs/run-1/trace') return { data: { ...trace, status: run.status } }
+    if (url === '/runs/run-1/evaluation') return { data: evaluationFor(owner) }
     if (url === '/agents') return { data: [{ id: 'ag-1', name: 'rule-based-v1', version: 1, provider: 'rule_based' }] }
     if (url === '/agents/providers') return { data: [{ provider: 'rule_based', available: true }] }
     if (url === '/scenarios') return { data: { items: [{ id: 'sc-1', scenario_key: 'delay_hub_congestion_001', version: 1, title: 'Hub' }], next_cursor: null, total: 1 } }
@@ -134,5 +165,28 @@ describe('run pages', () => {
     await userEvent.click(await screen.findByRole('button', { name: /launch run/i }))
     expect(post).toHaveBeenCalledWith('/runs', { scenario_id: 'sc-1', agent_config_id: 'ag-1' })
     expect(await screen.findByText('I have requested a refund of your shipping fee.')).toBeInTheDocument()
+  })
+
+  it('shows the verdict, gates and linked checks without expected values for viewers', async () => {
+    signIn('viewer')
+    mockGet(base)
+    renderRoutes(routes, '/runs/run-1')
+
+    expect(await screen.findByText('Failed policy')).toBeInTheDocument()
+    expect(screen.getByText('61.7')).toBeInTheDocument()
+    expect(screen.getByText('Attempted a forbidden action')).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: 'te:2' })
+    expect(link).toHaveAttribute('href', '#te-2')
+    expect(screen.queryByText(/^expected /)).toBeNull() // owner-only detail line
+    expect(screen.getByText(/Expected values are hidden for demo viewers/)).toBeInTheDocument()
+  })
+
+  it('shows expected values to the owner', async () => {
+    signIn('owner')
+    mockGet(base, true)
+    renderRoutes(routes, '/runs/run-1')
+    await screen.findByText('Failed policy')
+    expect(screen.getAllByText(/^expected /).length).toBe(2)
+    expect(screen.getByText(/Expected values come from the hidden ground truth/)).toBeInTheDocument()
   })
 })

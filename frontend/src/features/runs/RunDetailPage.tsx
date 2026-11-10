@@ -11,7 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toApiError } from '@/lib/api'
 import { formatDateTime, humanize } from '@/lib/format'
 
-import { isActive, useCancelRun, useLaunchRun, useRun, useTrace } from './api'
+import { isActive, useCancelRun, useEvaluation, useLaunchRun, useRun, useTrace } from './api'
+import { EvaluationPanel } from './EvaluationPanel'
 import { RunStatusBadge } from './RunStatusBadge'
 import { TraceTimeline } from './TraceTimeline'
 import type { RunDetail } from './types'
@@ -79,9 +80,6 @@ function Outcome({ run }: { run: RunDetail }) {
         <div className="flex flex-wrap gap-1">
           {o.evidence_ids.map((id) => <code key={id} className="rounded bg-muted px-1.5 py-0.5 text-xs">{id}</code>)}
         </div>
-        <p className="text-xs text-muted-foreground">
-          This is what the agent submitted. Scoring against the hidden ground truth arrives in Phase 5.
-        </p>
       </CardContent>
     </Card>
   )
@@ -100,6 +98,11 @@ export function RunDetailPage() {
   useEffect(() => {
     if (finalStatus) void refetchTrace()
   }, [finalStatus, refetchTrace])
+  const evaluation = useEvaluation(id, Boolean(finalStatus) && finalStatus !== 'cancelled')
+  const refetchEvaluation = evaluation.refetch
+  useEffect(() => {
+    if (finalStatus && finalStatus !== 'cancelled') void refetchEvaluation()
+  }, [finalStatus, refetchEvaluation])
   const cancel = useCancelRun()
   const relaunch = useLaunchRun()
   const [error, setError] = useState<string | null>(null)
@@ -177,6 +180,14 @@ export function RunDetailPage() {
             {String(r.error.code ?? '')} {r.error.message ? `· ${String(r.error.message)}` : ''}
           </AlertDescription>
         </Alert>
+      ) : null}
+
+      {evaluation.data ? (
+        <EvaluationPanel evaluation={evaluation.data} owner={isOwner} />
+      ) : r.status === 'cancelled' ? (
+        <Alert><AlertDescription>Cancelled runs are not scored.</AlertDescription></Alert>
+      ) : active ? (
+        <Alert><AlertDescription>The run will be scored as soon as it finishes.</AlertDescription></Alert>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">

@@ -89,3 +89,41 @@ export interface Trace {
   status: RunStatus
   events: TraceEvent[]
 }
+
+export type Verdict = 'PASS' | 'FAIL' | 'FAILED_POLICY' | 'ERROR'
+
+export interface EvaluationAssertion {
+  id: string
+  component: string
+  passed: boolean | null
+  summary: string
+  gate: boolean
+  weighted: boolean
+  cites: string[]
+  // Owner only (null for demo viewers): these reveal the hidden ground truth.
+  expected: unknown
+  actual: unknown
+  detail: string | null
+}
+
+export interface EvaluationComponent {
+  name: string
+  weight: number
+  score: number | null
+  enabled: boolean
+  detail: string
+}
+
+export interface Evaluation {
+  run_id: string
+  evaluator_version: string
+  verdict: Verdict
+  score: number | null
+  task_success: boolean
+  pass_threshold: number
+  components: EvaluationComponent[]
+  gate_failures: string[]
+  assertions: EvaluationAssertion[]
+  shows_expected_values: boolean
+  created_at: string
+}
