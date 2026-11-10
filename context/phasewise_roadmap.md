@@ -17,7 +17,7 @@
 | 1 | Scenario system + auth | ✅ done (2026-11-08) | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ✅ done (2026-11-09) | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ✅ done (2026-11-09) | 3 (first half) |
-| 4 | Execution and trace | ⬜ | 4 |
+| 4 | Execution and trace | ✅ done (2026-11-10) | 4 |
 | 5 | Deterministic evaluator | ⬜ | 5 |
 | 6 | Gemini LLM agent | ⬜ | 3 (second half) |
 | 7 | Failure diagnosis (+ optional judge) | ⬜ | 6 |
@@ -178,10 +178,27 @@ Tasks
 - UI: run launcher (config + scenario), run detail with status polling, trace timeline, tool-call cards, JSON expander.
 
 Acceptance
-- [ ] Launch → queued → running → completed visible in UI; trace complete and persisted after restart
-- [ ] Timeout and cancel produce clear states (tests)
-- [ ] Orphaned runs swept on startup (test)
-- [ ] Concurrency limit respected (test with 5 submissions, limit 2)
+- [x] Launch → queued → running → completed visible in UI (checked in the browser: live status and a trace growing 7 → 9 → 17 events); trace complete and persisted after a real backend restart
+- [x] Timeout and cancel produce clear states (tests for queued cancel, running cancel, running timeout, watchdog overrun; cancel also checked in the browser: stopped within ~1 s, mid tool latency)
+- [x] Orphaned runs swept on startup (test; and in the browser: backend killed mid-run → run shown as `errored / infra / orphaned` with its partial trace kept)
+- [x] Concurrency limit respected (unit test: 5 submissions, limit 2, peak 2; browser: 3 launches → running, running, queued)
+
+Results: backend 180 tests (126 unit + 54 database), frontend 17 tests; lint, typecheck and build clean.
+First performance review recorded in performance_review.md §7.
+
+Implementation notes
+- Code: `app/services/execution/` (`executor`, `worker`, `collector`, `service`), `app/api/v1/runs.py`,
+  migration 0005 (`runs`, `trace_events`, `usage_counters`); frontend `features/runs/`.
+- Status (`queued/running/completed/timed_out/cancelled/errored`) is separate from the agent's `stop_reason`
+  and from `error_kind` (`agent` vs `infra`); `verdict`/`score` stay empty until Phase 5.
+- Status changes are compare-and-set, so a watchdog timeout or a cancel is never overwritten by a late result.
+- Cancellation and timeouts are cooperative (checked before every step and tool call; simulated tool latency
+  waits on the cancel token) plus a watchdog at `timeout_s + RUN_WATCHDOG_GRACE_S` for stuck calls.
+- SOP search opens a short session per query, so a run never holds a database transaction open.
+- Launching a run locks the scenario version and agent config version it used.
+- Also added: a 1 MB request body limit (413, NFR-03), a run-queue cap (`MAX_QUEUED_RUNS` → 429),
+  per-principal run rate limit, the daily usage counter (`try_consume`, enforced for LLM runs in Phase 6),
+  `scripts/perf_probe.py`, and Run buttons on scenario and agent pages.
 
 ---
 

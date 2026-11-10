@@ -105,7 +105,30 @@ Actions:            <issues created / fixes made>
 
 | # | Date | Phase | Environment | Summary |
 |---|---|---|---|---|
-| — | — | — | — | *No reviews yet* |
+| 1 | 2026-11-10 | 4 | local (Windows, Postgres 16.2 portable, in-process client) | All measured API and run budgets met; see Review 1 |
+
+### Review 1 — 2026-11-10 — after Phase 4
+Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
+Environment:        local Windows dev machine, Postgres 16.2 (portable), FastAPI TestClient in-process
+                    (excludes network and cold start), `scripts/perf_probe.py`, 3 warm-ups
+Dataset:            10 scenarios, 2 agent configs, a few dozen runs
+
+| Measurement | Target (p95) | p50 | p95 | N |
+|---|---|---|---|---|
+| `GET /health` | ≤ 100 ms | 5.3 ms | 5.9 ms | 20 |
+| `GET /scenarios` (page of 20) | ≤ 300 ms | 12.6 ms | 13.7 ms | 20 |
+| `GET /runs` (page of 25) | ≤ 300 ms | 11.9 ms | 13.7 ms | 20 |
+| `GET /runs/{id}` (poll) | ≤ 150 ms | 10.0 ms | 10.8 ms | 20 |
+| `GET /runs/{id}/trace` (13 events) | ≤ 500 ms | 12.6 ms | 14.1 ms | 20 |
+| Rule-based run end-to-end, inline (incl. 13 trace writes) | ≤ 2 s | 75.8 ms | 81.1 ms | 20 |
+
+Also observed in the browser on the threaded executor: the carrier-timeout scenario takes ~6.2 s, almost all of it
+the scenario's two simulated 3 s carrier timeouts (by design).
+
+Findings:           everything well inside budget; each trace event is its own short transaction, which is fine
+                    at this scale. Frontend initial JS 202 KB gzip (budget 300 KB).
+Not measured yet:   cold start on Render, Neon latency, memory on the free instance (Phase 11).
+Actions:            none needed.
 
 ## 8. Known hotspots and optimisation playbook
 

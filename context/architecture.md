@@ -227,11 +227,14 @@ class TraceEvent(BaseModel):
     id: UUID
     run_id: UUID
     seq: int                     # 1..n, referenced as "te:<seq>"
-    event_type: Literal[
-        "run_started", "node_enter", "node_exit",
-        "model_request", "model_response",        # metadata + visible text; never thought parts
-        "tool_call", "tool_result", "tool_error", "policy_denied",
-        "outcome_submitted", "limit_exceeded", "run_error", "run_finished"]
+    event_type: Literal[                   # as implemented in Phase 4
+        "run_started",                          # scenario/agent versions and limits
+        "agent_input",                          # exactly what the agent was told (leakage audit)
+        "agent_turn",                           # visible text + requested tool calls (+ usage); never thought parts
+        "tool_result", "tool_error", "policy_denied",   # one per tool call, incl. rejected ones
+        "outcome_submitted", "outcome_invalid",
+        "limit_exceeded",                       # step_limit / timeout / cancelled
+        "run_error", "run_finished"]
     node_name: str | None
     tool_name: str | None
     input_json: dict | None      # tool args / model request summary (no secrets)
@@ -244,6 +247,9 @@ class TraceEvent(BaseModel):
 ```
 
 Redaction is applied at **read/export** time (display serializers), so stored traces remain usable by the evaluator; stored data is synthetic.
+
+Tool events store `input_json = {arguments, call_seq, simulated_latency_ms}`, `output_json` = the tool's data and
+`error_json = {code, message, retryable, details}`. `GET /runs/{id}/trace?after_seq=N` returns only newer events.
 
 ## 7. Evaluation pipeline
 
@@ -293,7 +299,7 @@ Refines PROJECT.md §14. All PKs are UUID v4; all timestamps `timestamptz` UTC; 
 | `benchmark_suites` | `name`, `description`, `tag_filter?` | — |
 | `suite_memberships` | `suite_id`, `scenario_key`, `pinned_version?` | unique(`suite_id`,`scenario_key`) |
 | `suite_runs` | `suite_id`, `agent_config_id`, `status`, `started_at`, `finished_at`, `summary_json`, `is_demo` | idx(`suite_id`,`created_at`) |
-| `runs` | `scenario_id` (version row), `agent_config_id`, `suite_run_id?`, `status`, `verdict?`, `error_kind?` (`agent`/`infra`), `started_at`, `finished_at`, `latency_ms`, `usage_json?`, `final_outcome_json?`, `score?`, `policy_failed`, `error_json?`, `config_snapshot_json`, `is_demo`, `triggered_by_role` | idx(`status`,`created_at`), idx(`suite_run_id`), idx(`agent_config_id`) |
+| `runs` | `scenario_id` (version row), `agent_config_id`, `suite_run_id?` (FK added in Phase 8), denormalised `scenario_key/version`, `agent_name/version`, `provider`; `status`, `stop_reason?`, `error_kind?` (`agent`/`infra`), `error_json?`, `cancel_requested`, `started_at`, `finished_at`, `latency_ms`, `steps`, `tool_call_count`, `usage_json?`, `final_outcome_json?`, `actions_json?`, `verdict?`, `score?`, `policy_failed`, `config_snapshot_json`, `versions_json`, `is_demo`, `triggered_by_role`, `triggered_by` | idx(`status`,`created_at`), idx(`created_at`), idx(`suite_run_id`), idx(`agent_config_id`), idx(`scenario_id`) |
 | `trace_events` | columns of §6 | unique(`run_id`,`seq`); idx(`run_id`) |
 | `evaluation_results` | `run_id`, `evaluator_version`, `score_breakdown_json`, `assertions_json`, `task_success`, `verdict`, `policy_violations_json`, `judge_json?` | unique(`run_id`,`evaluator_version`) |
 | `failure_reports` | `run_id`, `diagnoser_version`, `failure_type`, `severity`, `likely_stage`, `evidence_json`, `diagnosis`, `debugging_recommendation`, `confidence` | idx(`run_id`), idx(`failure_type`) |

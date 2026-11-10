@@ -161,8 +161,10 @@ create ──▶│ queued │────────────────�
 | Run wall-clock timeout | 60 s (LLM) / 10 s (rule-based) | executor |
 | Daily LLM-backed runs | 50 | `usage_counters` table, checked at run creation |
 | Gemini request throttle | configurable RPM (set below current free-tier limit) | provider adapter token bucket |
-| Request body | 1 MB | middleware |
-| Run creation rate | 10/min per token | middleware |
+| Request body | 1 MB | `BodySizeLimitMiddleware` (413) |
+| Run creation rate | 10/min per principal | run service (429) |
+| Queued + running runs | 20 | run service (429 `run_queue_full`) |
+| Watchdog | `timeout_s` + 15 s grace | executor timer marks the run `timed_out` |
 
 ## 9. Failure modes and handling
 

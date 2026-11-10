@@ -126,7 +126,12 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `GEMINI_MODEL` | no | a current Gemini Flash model ID | check AI Studio for the current ID |
 | `GEMINI_RPM_LIMIT` | no | set below current free-tier RPM | adapter throttle |
 | `LLM_DAILY_RUN_CAP` | no | `50` | |
-| `MAX_CONCURRENT_RUNS` | no | `2` | |
+| `MAX_CONCURRENT_RUNS` | no | `2` | thread-pool size; more runs wait in the queue |
+| `MAX_QUEUED_RUNS` | no | `20` | queued + running cap (429 beyond it) |
+| `RUN_RATE_LIMIT_PER_MINUTE` | no | `10` | per principal (all demo viewers share one) |
+| `RUN_WATCHDOG_GRACE_S` | no | `15` | extra time before a stuck run is marked timed out |
+| `SWEEP_ORPHANED_RUNS_ON_STARTUP` | no | `true` | marks runs interrupted by a restart as orphaned |
+| `MAX_REQUEST_BYTES` | no | `1000000` | request body limit (413) |
 | `RUN_TIMEOUT_SECONDS` | no | `60` | rule-based runs use 10 |
 | `MAX_AGENT_STEPS` / `MAX_TOOL_CALLS` | no | `8` / `10` | |
 | `LLM_JUDGE_ENABLED` | no | `false` | |
