@@ -8,12 +8,14 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 4 done**: launch runs from the UI, a background executor with limits,
-> cancel and timeouts, and a live trace viewer of every observable step (Phase 4). Earlier: a LangGraph agent with
+> **Project status:** 🏗️ **Phase 5 done**: every finished run is scored deterministically (weighted 0–100,
+> four hard safety gates, verdict) with each check linked to the trace step behind it (Phase 5). Earlier: runs
+> with a background executor and a live trace viewer (Phase 4), a LangGraph agent with
 > two rule-based baselines and versioned agent configs (Phase 3), 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). Next: deterministic scoring (Phase 5).
-> Features below are *planned* unless marked otherwise. No benchmark results have been produced; none are shown here.
+> search, and reproducible fault injection (Phase 2). Next: the Gemini LLM agent (Phase 6).
+> Features below are *planned* unless marked otherwise. The only results so far are for the rule-based
+> baselines (context/benchmark.md §15); no LLM results exist yet.
 
 ---
 
@@ -75,7 +77,7 @@ agentops-logistics/
 │   ├── scenarios/       10 versioned scenario JSON files                        ✅ Phase 1
 │   ├── sops/            7 synthetic SOP documents + section catalog          ✅ Phase 2
 │   └── agents/          rule-based agent configs                               ✅ Phase 3
-├── scripts/             validate_scenarios, seed_db, create_owner, run_agent, perf_probe ✅
+├── scripts/             validate_scenarios, seed_db, create_owner, run_agent, evaluate_runs, perf_probe ✅
 ├── context/             design & planning docs      ✅
 ├── .github/workflows/   CI (backend + frontend)     ✅ Phase 0
 ├── docker-compose.yml   local Postgres 16 + pgvector ✅ Phase 0

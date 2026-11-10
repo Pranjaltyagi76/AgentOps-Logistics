@@ -253,6 +253,10 @@ Tool events store `input_json = {arguments, call_seq, simulated_latency_ms}`, `o
 
 ## 7. Evaluation pipeline
 
+Implemented in Phase 5: `app/domain/scoring.py` (pure `evaluate(spec, RunFacts)`), `app/domain/constraints.py`,
+`app/services/evaluation/service.py` (loads the trace, stores `evaluation_results`, updates `runs.verdict/score/policy_failed`).
+API: `GET /runs/{id}/evaluation` (expected values owner-only), `POST /runs/{id}/evaluate` (owner).
+
 ```text
 trace + outcome + scenario ground truth
    │

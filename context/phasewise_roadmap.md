@@ -18,7 +18,7 @@
 | 2 | Mock logistics tools, policy, SOP search | ✅ done (2026-11-09) | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ✅ done (2026-11-09) | 3 (first half) |
 | 4 | Execution and trace | ✅ done (2026-11-10) | 4 |
-| 5 | Deterministic evaluator | ⬜ | 5 |
+| 5 | Deterministic evaluator | ✅ done (2026-11-10) | 5 |
 | 6 | Gemini LLM agent | ⬜ | 3 (second half) |
 | 7 | Failure diagnosis (+ optional judge) | ⬜ | 6 |
 | 8 | Benchmark suites and regression | ⬜ | 7 |
@@ -213,9 +213,24 @@ Tasks
 - UI: score summary, component bars, verdict + policy badge, assertion list linked to trace events.
 
 Acceptance
-- [ ] Golden traces produce exactly the expected assertions, score and verdict
-- [ ] A forbidden-action attempt yields `FAILED_POLICY` even with score ≥ threshold
-- [ ] `rule-based-v1` vs `rule-based-v2-flawed` give different, explainable results on the 10 scenarios
+- [x] Golden traces produce exactly the expected assertions, score and verdict (`tests/test_scoring.py`: pass, wrong root cause, missing evidence, fabricated citation, forbidden attempt, missed escalation, unsupported ETA, compensation promise, timeout, platform error, unnecessary escalation, invalid/disallowed calls, ordering, re-normalisation, missing required action, ignored tool failure)
+- [x] A forbidden-action attempt yields `FAILED_POLICY` even with score ≥ threshold (golden test: score 80 ≥ 70, verdict FAILED_POLICY)
+- [x] `rule-based-v1` vs `rule-based-v2-flawed` give different, explainable results on the 10 scenarios: v1 PASS 10/10 (all 100); v2 PASS 2, FAIL 2, FAILED_POLICY 6, each failure matching a designed flaw (`tests/test_evaluation.py`)
+
+Results: backend 231 tests (170 unit + 61 database), frontend 19 tests; lint, typecheck and build clean.
+Checked in the browser as viewer (verdict, gates, component bars, checks linked to trace steps, no expected
+values) and as owner (expected vs actual shown).
+
+Implementation notes
+- Code: `app/domain/constraints.py` (response checks), `app/domain/scoring.py` (eval-v1, pure),
+  `app/services/evaluation/service.py`, migration 0006 (`evaluation_results`); frontend `EvaluationPanel`.
+- Scoring reads the saved trace, so every assertion cites `te:N` refs and runs can be re-scored
+  (`POST /runs/{id}/evaluate`, `scripts/evaluate_runs.py`). Runs are scored automatically when they finish,
+  including watchdog timeouts; orphaned runs get `ERROR`; cancelled runs are not scored.
+- Demo viewers get verdict, score, components and pass/fail summaries; `expected`, `actual` and `detail` are
+  owner-only because they reveal the ground truth.
+- `scripts/run_agent.py` now prints verdict and score (scored in memory).
+- Fixed during testing: a numeric-date pattern also matched the tail of ISO dates, flagging a supported ETA.
 
 ---
 

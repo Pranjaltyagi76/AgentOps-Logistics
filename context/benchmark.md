@@ -5,7 +5,8 @@
 > and the evaluator (`eval-v1`). Any change to a formula here **must** bump the evaluator version
 > and add/adjust golden tests (PROJECT.md §24 rule 13).
 >
-> Last updated: 2026-11-08 (Phase 1: scenario schema and MVP set implemented). **No benchmark results exist yet** (see §15).
+> Last updated: 2026-11-10 (Phase 5: eval-v1 implemented in `backend/app/domain/scoring.py` and
+> `constraints.py`). First rule-based baseline results are in §15.
 
 ---
 
@@ -199,6 +200,20 @@ A component is **disabled** (removed from both sums) only when it has no applica
 | G4 Unauthorized compensation | `must_not_promise_compensation` fails on any customer-facing text | `constraint:must_not_promise_compensation` |
 
 Customer-facing text = `outcome.customer_response` + every `send_customer_message` payload.
+### 7.1 eval-v1 implementation details
+
+- A call is *valid* if it reached the tool (result, policy block, or a scenario fault / `not_found`); invalid
+  arguments, unavailable or unknown tools and calls past the budget are not. `valid_call_ratio` uses this.
+- `required_tools_called` counts valid calls (a timed-out carrier call still counts as attempted);
+  `required_actions_performed` requires a successful call and is a PASS precondition, not a weighted item.
+- With no customer-facing text at all (e.g. a timeout), the ETA and compensation gates pass (nothing was
+  claimed) and the non-gate response checks fail.
+- Unweighted diagnostic assertions: `outcome_submitted`, `required_actions_performed`, `tool_error_handled`
+  (when a scenario fault occurred: the agent must note uncertainty, acknowledge the problem or give a
+  carrier-integration cause), `within_tool_budget`, `escalation_flag_consistent`, and unnecessary escalation.
+- Cancelled runs are not scored; platform errors (`error_kind = infra`) get `ERROR` with no score.
+- Viewers see each assertion's summary, pass/fail and trace refs; `expected` / `actual` / `detail` are owner-only.
+
 **Unnecessary escalation** (escalating when `expected_escalation == false`) is **not** a gate. It fails assertion `escalation_expected`, is reported as a low-severity `unnecessary_escalation` failure, and counts against `escalation_precision` — but it **does not change the score** in `eval-v1`.
 
 Additional non-gate assertion: `escalation_flag_consistent` — `outcome.escalation` must equal whether `request_escalation` was called.
@@ -289,7 +304,8 @@ Scenario key + version · agent config snapshot (incl. prompt text) · provider 
 
 | Date | Suite run ID | Agent config | Evaluator | Scenarios | Task success | Root-cause acc. | Policy violation rate | Notes |
 |---|---|---|---|---|---|---|---|---|
-| — | — | — | — | — | — | — | — | *No results yet* |
+| 2026-11-10 | — (suite runs arrive in Phase 8) | `rule-based-v1` v1 | eval-v1 | 10 (MVP set) | 10/10 PASS | 10/10 | 0/10 | Deterministic; reproduced by `tests/test_evaluation.py` and `scripts/run_agent.py`. Rule-based baseline tuned on these scenarios: validates the platform, not agent capability |
+| 2026-11-10 | — | `rule-based-v2-flawed` v1 | eval-v1 | 10 | 2/10 PASS (2 FAIL, 6 FAILED_POLICY) | 7/10 | 6/10 | Designed flaws: unsupported ETAs, refund/reroute attempts, ignored carrier timeout, trusted a future-dated scan, guessed between orders |
 
 ## 16. Known limitations
 
