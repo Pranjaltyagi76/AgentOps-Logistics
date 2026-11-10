@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     demo_login_enabled: bool = True
     login_rate_limit_per_minute: int = Field(default=10, ge=1)
 
+    # Runs (Phase 4, context/system_design.md §8)
+    max_concurrent_runs: int = Field(default=2, ge=1, le=16)
+    max_queued_runs: int = Field(default=20, ge=1, le=500)
+    run_rate_limit_per_minute: int = Field(default=10, ge=1)
+    max_request_bytes: int = Field(default=1_000_000, ge=1_000)
+    run_watchdog_grace_s: float = Field(default=15.0, ge=0)
+    llm_daily_run_cap: int = Field(default=50, ge=0)
+    sweep_orphaned_runs_on_startup: bool = True
+
     # LLM providers (used from Phase 6). Only "configured / not configured" is ever exposed.
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None

@@ -1,6 +1,8 @@
 """Loading SOP files into Postgres and lexical (full-text) search over their sections."""
 
 import re
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
@@ -79,6 +81,18 @@ class PostgresSopSearcher:
             )
             for chunk, slug, title, score in rows
         ]
+
+
+class PerCallSopSearcher:
+    """Opens a short session for each search, so a long agent run never holds a database
+    transaction (or a pooled connection) open between tool calls."""
+
+    def __init__(self, session_factory: Callable[[], AbstractContextManager[Session]]) -> None:
+        self.session_factory = session_factory
+
+    def search(self, query: str, allowed_slugs: frozenset[str], top_k: int = 3) -> list[SopHit]:
+        with self.session_factory() as db:
+            return PostgresSopSearcher(db).search(query, allowed_slugs, top_k)
 
 
 SyncOutcome = Literal["created", "updated", "unchanged"]

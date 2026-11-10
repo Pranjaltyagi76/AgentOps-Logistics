@@ -77,3 +77,23 @@ def test_blank_jwt_secret_falls_back_to_dev_default_outside_production(monkeypat
 
     monkeypatch.setenv("JWT_SECRET", "")
     assert Settings(_env_file=None).jwt_secret.get_secret_value() == DEV_JWT_SECRET
+
+
+def test_oversized_request_bodies_are_rejected(test_settings) -> None:
+    from app.main import create_app
+
+    app = create_app(test_settings.model_copy(update={"max_request_bytes": 1_000}))
+    with TestClient(app) as small:
+        response = small.post("/api/v1/auth/login", content=b"x" * 5_000)
+        assert response.status_code == 413
+        assert response.json()["error"]["code"] == "payload_too_large"
+        assert response.headers["X-Request-ID"]
+
+        def chunks():
+            yield b"{" + b" " * 3_000  # no Content-Length: counted while streaming
+            yield b"}"
+
+        streamed = small.post("/api/v1/auth/login", content=chunks())
+        assert streamed.status_code == 413
+        normal = small.post("/api/v1/auth/demo")
+        assert normal.status_code == 200
