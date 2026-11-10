@@ -6,6 +6,7 @@ environment (CI). They never fall back to the default development database. Each
 inside a transaction that is rolled back, so the database is left unchanged.
 """
 
+import contextlib
 import copy
 import json
 import os
@@ -18,7 +19,7 @@ from alembic import command
 from alembic.config import Config
 from dotenv import dotenv_values
 from fastapi.testclient import TestClient
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Connection, Engine, create_engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -27,6 +28,7 @@ from app.db.session import get_db
 from app.domain.sop_catalog import SopCatalog, get_catalog
 from app.main import create_app
 from app.services.auth.service import upsert_owner
+from app.services.execution.executor import CancelToken, InlineExecutor
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 SCENARIO_DIR = DEFAULT_DATA_DIR / "scenarios"
@@ -77,11 +79,20 @@ def test_settings() -> Settings:
         git_sha="test-sha",
         cors_origins="http://localhost:5173",
         database_url=_test_database_url() or Settings(_env_file=None).database_url,  # type: ignore[call-arg]
+        sweep_orphaned_runs_on_startup=False,
     )
 
 
-def _client(settings: Settings, session: Any | None) -> Iterator[TestClient]:
-    app = create_app(settings)
+def _client(
+    settings: Settings,
+    session: Any | None,
+    *,
+    executor: Any | None = None,
+    session_factory: Any | None = None,
+) -> Iterator[TestClient]:
+    app = create_app(
+        settings, executor=executor or InlineExecutor(), session_factory=session_factory
+    )
     if session is not None:
 
         def override_db() -> Iterator[Any]:
@@ -168,22 +179,84 @@ def db_engine() -> Iterator[Engine]:
 
 
 @pytest.fixture
-def db_session(db_engine: Engine) -> Iterator[Session]:
+def db_connection(db_engine: Engine) -> Iterator[Connection]:
     connection = db_engine.connect()
     transaction = connection.begin()
-    session = Session(bind=connection, join_transaction_mode="create_savepoint")
     try:
-        yield session
+        yield connection
     finally:
-        session.close()
         transaction.rollback()
         connection.close()
 
 
 @pytest.fixture
-def api(test_settings: Settings, db_session: Session) -> Iterator[TestClient]:
-    """App bound to the rolled-back test transaction."""
-    yield from _client(test_settings, db_session)
+def session_factory(db_connection: Connection) -> Callable[[], Session]:
+    """New sessions on the test connection (what run workers and the collector use)."""
+
+    def factory() -> Session:
+        return Session(bind=db_connection, join_transaction_mode="create_savepoint")
+
+    return factory
+
+
+@pytest.fixture
+def db_session(session_factory: Callable[[], Session]) -> Iterator[Session]:
+    session = session_factory()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+class ManualExecutor:
+    """Holds submitted jobs until `run_pending()` is called (for queue and cancel tests)."""
+
+    def __init__(self) -> None:
+        self.jobs: dict[Any, Any] = {}
+        self.tokens: dict[Any, CancelToken] = {}
+
+    def submit(
+        self, run_id: Any, job: Any, *, timeout_s: Any = None, on_overrun: Any = None
+    ) -> None:
+        self.jobs[run_id] = job
+        self.tokens[run_id] = CancelToken()
+
+    def cancel(self, run_id: Any, reason: str = "cancelled") -> bool:
+        if run_id not in self.tokens:
+            return False
+        self.tokens[run_id].cancel(reason)
+        return True
+
+    def run_pending(self) -> None:
+        jobs, self.jobs = self.jobs, {}
+        for run_id, job in jobs.items():
+            job(self.tokens[run_id])
+
+    def shutdown(self) -> None:
+        return None
+
+
+@pytest.fixture
+def make_api(
+    test_settings: Settings, db_session: Session, session_factory: Callable[[], Session]
+) -> Iterator[Callable[..., TestClient]]:
+    """Build extra apps on the test transaction: make_api(executor=..., **settings_overrides)."""
+    stack = contextlib.ExitStack()
+
+    def build(executor: Any | None = None, **overrides: Any) -> TestClient:
+        settings = test_settings.model_copy(update=overrides)
+        gen = _client(settings, db_session, executor=executor, session_factory=session_factory)
+        stack.callback(lambda: next(gen, None))
+        return next(gen)
+
+    with stack:
+        yield build
+
+
+@pytest.fixture
+def api(make_api: Callable[..., TestClient]) -> TestClient:
+    """App bound to the rolled-back test transaction; runs execute inline."""
+    return make_api()
 
 
 @pytest.fixture
