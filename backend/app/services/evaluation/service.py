@@ -1,5 +1,7 @@
 """Scores finished runs from their saved trace and stores the result.
 
+Each evaluation is diagnosed in the same transaction (diag-v1, Phase 7).
+
 Called by the run worker right after a run finishes, by the sweeper for orphaned runs, by the
 re-evaluate endpoint, and by scripts/evaluate_runs.py. Cancelled runs are not scored: the
 user stopped them, so they say nothing about the agent.
@@ -12,9 +14,18 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db.models import EvaluationResult, Run, Scenario, TraceEvent
-from app.domain.scoring import EVALUATOR_VERSION, Evaluation, RunFacts, TraceRecord, evaluate
+from app.domain.diagnosis_rules import diagnose
+from app.domain.scoring import (
+    EVALUATOR_VERSION,
+    Assertion,
+    Evaluation,
+    RunFacts,
+    TraceRecord,
+    evaluate,
+)
 from app.schemas.scenario import ScenarioSpec
 from app.services.agent_graph.graph import AgentRunResult
+from app.services.diagnosis.service import store_diagnosis
 from app.services.execution.collector import SessionFactory
 
 logger = logging.getLogger(__name__)
@@ -71,9 +82,8 @@ def facts_from_result(result: AgentRunResult, status: str = "completed") -> RunF
     return RunFacts(status, result.stop_reason, None, tuple(records), outcome)
 
 
-def evaluate_loaded(db: Session, run: Run) -> Evaluation | None:
-    if run.status in NOT_SCORED:
-        return None
+def load_run_facts(db: Session, run: Run) -> tuple[ScenarioSpec, RunFacts]:
+    """The scenario (with ground truth) and the run's facts rebuilt from its saved trace."""
     scenario = db.get(Scenario, run.scenario_id)
     assert scenario is not None
     spec = ScenarioSpec.model_validate(scenario.scenario_json)
@@ -87,18 +97,31 @@ def evaluate_loaded(db: Session, run: Run) -> Evaluation | None:
         records=records_from_events(events),
         outcome=run.final_outcome_json,
     )
+    return spec, facts
+
+
+def evaluate_loaded(db: Session, run: Run) -> Evaluation | None:
+    if run.status in NOT_SCORED:
+        return None
+    spec, facts = load_run_facts(db, run)
     return evaluate(spec, facts)
 
 
 def evaluate_run(db: Session, run_id: uuid.UUID) -> EvaluationResult | None:
     """Scores one run and stores the result (replacing a result of the same version)."""
     run = db.get(Run, run_id)
-    if run is None:
+    if run is None or run.status in NOT_SCORED:
         return None
-    evaluation = evaluate_loaded(db, run)
-    if evaluation is None:
-        return None
+    spec, facts = load_run_facts(db, run)
+    evaluation = evaluate(spec, facts)
     payload = evaluation.to_json()
+    previous = db.scalar(
+        select(EvaluationResult).where(
+            EvaluationResult.run_id == run_id,
+            EvaluationResult.evaluator_version == evaluation.version,
+        )
+    )
+    judge_json = previous.judge_json if previous is not None else None  # judged the same reply
     db.execute(
         delete(EvaluationResult).where(
             EvaluationResult.run_id == run_id,
@@ -115,14 +138,30 @@ def evaluate_run(db: Session, run_id: uuid.UUID) -> EvaluationResult | None:
         score_breakdown_json=payload["components"],
         assertions_json=payload["assertions"],
         policy_violations_json=evaluation.gate_failures,
+        judge_json=judge_json,
     )
     db.add(row)
+    db.flush()
+    # Diagnosis is part of scoring: same facts, same transaction (Phase 7).
+    store_diagnosis(db, row, diagnose(spec, evaluation.verdict, evaluation.assertions, facts))
     run.verdict = evaluation.verdict
     run.score = evaluation.score
     run.policy_failed = bool(evaluation.gate_failures)
     run.versions_json = {**(run.versions_json or {}), "evaluator": evaluation.version}
     db.commit()
     return row
+
+
+def ensure_diagnosis(db: Session, evaluation: EvaluationResult) -> None:
+    """Diagnoses an evaluation stored before Phase 7 (deterministic, so safe to do on read)."""
+    if evaluation.diagnoser_version is not None:
+        return
+    run = db.get(Run, evaluation.run_id)
+    assert run is not None
+    spec, facts = load_run_facts(db, run)
+    assertions = [Assertion(**raw) for raw in evaluation.assertions_json]
+    store_diagnosis(db, evaluation, diagnose(spec, evaluation.verdict, assertions, facts))
+    db.commit()
 
 
 def evaluate_run_safely(session_factory: SessionFactory, run_id: uuid.UUID) -> None:

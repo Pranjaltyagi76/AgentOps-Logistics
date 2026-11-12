@@ -33,3 +33,5 @@ class EvaluationResult(UUIDPrimaryKey, CreatedAt, Base):
     policy_violations_json: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     # Optional LLM judge output (Phase 7); stored separately from deterministic results.
     judge_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Set once failure_reports rows exist for this evaluation (also when there were no failures).
+    diagnoser_version: Mapped[str | None] = mapped_column(String(20), nullable=True)

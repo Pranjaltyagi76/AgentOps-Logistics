@@ -13,12 +13,20 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import OwnerDep, PrincipalDep, SettingsDep
+from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.redaction import redact_pii
 from app.db.models import EvaluationResult, Run, TraceEvent
 from app.db.session import get_db
-from app.services.evaluation.service import evaluate_run, latest_evaluation
-from app.services.execution.service import RunFilters, RunService
+from app.services.diagnosis.service import report_for
+from app.services.evaluation.judge import LLM_JUDGE_KEY, judge_evaluation
+from app.services.evaluation.service import (
+    ensure_diagnosis,
+    evaluate_run,
+    latest_evaluation,
+    load_run_facts,
+)
+from app.services.execution.service import RunFilters, RunService, try_consume
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -234,6 +242,18 @@ class ComponentOut(BaseModel):
     detail: str
 
 
+# Judge fields every principal may see; the rationale and refs can echo the rubric (owner only).
+_JUDGE_PUBLIC_FIELDS = (
+    "status",
+    "advisory",
+    "score",
+    "uncertainty",
+    "judge_model",
+    "prompt_version",
+    "created_at",
+)
+
+
 class EvaluationOut(BaseModel):
     run_id: uuid.UUID
     evaluator_version: str
@@ -246,9 +266,19 @@ class EvaluationOut(BaseModel):
     assertions: list[AssertionOut]
     shows_expected_values: bool
     created_at: datetime
+    judge: dict[str, Any] | None = None  # advisory LLM judge; never part of score or verdict
+    judge_available: bool = False  # owner: the judge can be run on this server
 
 
-def _evaluation_out(row: EvaluationResult, owner: bool) -> EvaluationOut:
+def _judge_out(judge: dict[str, Any] | None, owner: bool) -> dict[str, Any] | None:
+    if judge is None or owner:
+        return judge
+    return {k: judge[k] for k in _JUDGE_PUBLIC_FIELDS if k in judge}
+
+
+def _evaluation_out(
+    row: EvaluationResult, owner: bool, settings: Settings | None = None
+) -> EvaluationOut:
     assertions = []
     for raw in row.assertions_json:
         item = dict(raw)
@@ -268,12 +298,20 @@ def _evaluation_out(row: EvaluationResult, owner: bool) -> EvaluationOut:
         assertions=assertions,
         shows_expected_values=owner,
         created_at=row.created_at,
+        judge=_judge_out(row.judge_json, owner),
+        judge_available=bool(
+            owner
+            and settings is not None
+            and settings.llm_judge_enabled
+            and settings.gemini_api_key is not None
+            and row.verdict != "ERROR"
+        ),
     )
 
 
 @router.get("/{run_id}/evaluation", response_model=EvaluationOut)
 def get_evaluation(
-    service: ServiceDep, principal: PrincipalDep, run_id: uuid.UUID
+    service: ServiceDep, principal: PrincipalDep, settings: SettingsDep, run_id: uuid.UUID
 ) -> EvaluationOut:
     run = service.get(run_id)
     row = latest_evaluation(service.db, run_id)
@@ -282,14 +320,110 @@ def get_evaluation(
             "the run has not finished" if run.is_active else f"{run.status} runs are not scored"
         )
         raise AppError(f"No evaluation: {reason}", code="evaluation_not_found", status_code=404)
-    return _evaluation_out(row, principal.is_owner)
+    return _evaluation_out(row, principal.is_owner, settings)
 
 
 @router.post("/{run_id}/evaluate", response_model=EvaluationOut)
-def reevaluate(service: ServiceDep, _: OwnerDep, run_id: uuid.UUID) -> EvaluationOut:
+def reevaluate(
+    service: ServiceDep, _: OwnerDep, settings: SettingsDep, run_id: uuid.UUID
+) -> EvaluationOut:
     """Re-scores a finished run with the current evaluator version."""
     service.get(run_id)
     row = evaluate_run(service.db, run_id)
     if row is None:
         raise AppError("This run cannot be scored", code="evaluation_not_possible", status_code=409)
-    return _evaluation_out(row, True)
+    return _evaluation_out(row, True, settings)
+
+
+@router.post("/{run_id}/judge", response_model=EvaluationOut)
+def judge(
+    service: ServiceDep, _: OwnerDep, settings: SettingsDep, run_id: uuid.UUID
+) -> EvaluationOut:
+    """Runs the advisory LLM judge on a scored run (owner only; off unless LLM_JUDGE_ENABLED)."""
+    run = service.get(run_id)
+    row = latest_evaluation(service.db, run_id)
+    if row is None:
+        raise AppError(
+            "This run has no evaluation to judge", code="judge_not_possible", status_code=409
+        )
+    spec, facts = load_run_facts(service.db, run)
+    judged = judge_evaluation(
+        service.db,
+        run,
+        row,
+        spec,
+        facts,
+        settings,
+        consume=lambda: try_consume(service.db, LLM_JUDGE_KEY, settings.llm_judge_daily_cap),
+    )
+    return _evaluation_out(judged, True, settings)
+
+
+# --- failure diagnosis (Phase 7) ------------------------------------------------------------
+
+
+class FailureItemOut(BaseModel):
+    position: int
+    primary: bool
+    failure_type: str
+    severity: str
+    likely_stage: str
+    confidence: str
+    assertion_ids: list[str]
+    trace_refs: list[str]
+    summary: str
+    debugging_recommendation: str
+    diagnosis: str | None = None  # owner only: may name expected values
+    evidence: dict[str, Any] | None = None  # owner only
+
+
+class FailureReportOut(BaseModel):
+    run_id: uuid.UUID
+    diagnoser_version: str | None
+    evaluator_version: str
+    verdict: str
+    status: str  # diagnosed | no_failures | not_diagnosed (platform error)
+    items: list[FailureItemOut]
+    shows_details: bool
+
+
+@router.get("/{run_id}/failure-report", response_model=FailureReportOut)
+def get_failure_report(
+    service: ServiceDep, principal: PrincipalDep, run_id: uuid.UUID
+) -> FailureReportOut:
+    """Evidence-linked diagnosis of the run's latest evaluation (diag-v1)."""
+    run = service.get(run_id)
+    evaluation = latest_evaluation(service.db, run_id)
+    if evaluation is None:
+        reason = (
+            "the run has not finished" if run.is_active else f"{run.status} runs are not scored"
+        )
+        raise AppError(f"No failure report: {reason}", code="report_not_found", status_code=404)
+    ensure_diagnosis(service.db, evaluation)
+    report = report_for(service.db, evaluation)
+    owner = principal.is_owner
+    return FailureReportOut(
+        run_id=run_id,
+        diagnoser_version=evaluation.diagnoser_version,
+        evaluator_version=evaluation.evaluator_version,
+        verdict=evaluation.verdict,
+        status=report.status,
+        items=[
+            FailureItemOut(
+                position=row.position,
+                primary=row.is_primary,
+                failure_type=row.failure_type,
+                severity=row.severity,
+                likely_stage=row.likely_stage,
+                confidence=row.confidence,
+                assertion_ids=row.assertion_ids,
+                trace_refs=row.trace_refs,
+                summary=row.summary,
+                debugging_recommendation=row.debugging_recommendation,
+                diagnosis=row.diagnosis if owner else None,
+                evidence=row.evidence_json if owner else None,
+            )
+            for row in report.items
+        ],
+        shows_details=owner,
+    )

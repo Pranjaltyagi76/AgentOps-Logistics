@@ -83,3 +83,41 @@ def test_gemini_completes_one_scenario_end_to_end() -> None:
     assert result.outcome is not None
     assert result.usage and all(u["input_tokens"] for u in result.usage)
     assert evaluation.verdict != "ERROR"
+
+
+@pytest.mark.skipif(
+    os.environ.get("RUN_LLM_TESTS") != "1" or get_settings().gemini_api_key is None,
+    reason="real Gemini call: set GEMINI_API_KEY and RUN_LLM_TESTS=1 (never in CI)",
+)
+def test_gemini_judge_returns_a_valid_advisory_verdict() -> None:
+    """Judges the rule-based-v1 reply (no agent LLM call): one or two Gemini requests."""
+    import time
+
+    from app.schemas.agent_config import load_prompt
+    from app.services.evaluation.judge import (
+        JUDGE_PROMPT_VERSION,
+        JUDGE_SCHEMA,
+        JudgeVerdict,
+        judge_input,
+    )
+    from app.services.providers.factory import build_judge_provider
+
+    settings = get_settings()
+    config = AgentConfigSpec.model_validate(
+        json.loads((DEFAULT_DATA_DIR / "agents" / "rule-based-v1.v1.json").read_text())
+    )
+    spec = ScenarioSpec.model_validate(
+        json.loads((DEFAULT_DATA_DIR / "scenarios" / SCENARIO).read_text(encoding="utf-8"))
+    )
+    facts = facts_from_result(run_scenario(spec, config, InMemorySops(), settings=settings))
+    payload = judge_input(spec, facts)
+    provider = build_judge_provider(settings)
+    raw, usage, served = provider.generate_json(
+        load_prompt(JUDGE_PROMPT_VERSION),
+        json.dumps(payload),
+        JUDGE_SCHEMA,
+        deadline=time.monotonic() + 90,
+    )
+    verdict = JudgeVerdict.model_validate_json(raw)
+    print(f"\njudge={served} usage={usage} verdict={verdict.model_dump()}")
+    assert 0 <= verdict.score <= 1
