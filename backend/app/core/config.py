@@ -55,9 +55,22 @@ class Settings(BaseSettings):
     llm_daily_run_cap: int = Field(default=50, ge=0)
     sweep_orphaned_runs_on_startup: bool = True
 
-    # LLM providers (used from Phase 6). Only "configured / not configured" is ever exposed.
+    # LLM providers (Phase 6). Only "configured / not configured" is ever exposed.
     gemini_api_key: SecretStr | None = None
+    # Used when an agent config's model_id is "default". Check AI Studio for current IDs.
+    gemini_model: str = Field(default="gemini-3.5-flash", pattern=r"^[a-z0-9][a-z0-9.\-]{2,80}$")
+    # "minimal" (default) | "low" | ... for Gemini 3+; Gemini 2.5 models get thinking_budget=0.
+    gemini_thinking_level: str = Field(default="minimal", pattern=r"^(minimal|low|medium|high)$")
+    # Process-wide request throttle; keep it below the free-tier per-minute limit.
+    gemini_rpm_limit: int = Field(default=5, ge=1, le=1000)
+    # A normal turn takes 1-5 s; a request still open after this is retried (Gemini min: 10 s).
+    gemini_request_timeout_s: float = Field(default=20.0, ge=10, le=120)
     openai_api_key: SecretStr | None = None
+
+    @field_validator("gemini_api_key", "openai_api_key", mode="before")
+    @classmethod
+    def _empty_key_means_unset(cls, value: object) -> object:
+        return None if isinstance(value, str) and not value.strip() else value
 
     @field_validator("jwt_secret", mode="before")
     @classmethod

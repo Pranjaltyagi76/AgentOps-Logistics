@@ -1,0 +1,13 @@
+{
+  "name": "gemini-flash-v1",
+  "version": 1,
+  "description": "Gemini Flash agent on the same LangGraph loop and tools as the rule-based baselines. Uses the server's GEMINI_MODEL (model_id \"default\"), minimal thinking, and the agent_system_v1 prompt. Owner only, within the daily LLM run cap.",
+  "provider": "gemini",
+  "model_id": "default",
+  "temperature": 1.0,
+  "prompt_version": "agent_system_v1",
+  "max_steps": 10,
+  "max_tool_calls": 10,
+  "timeout_s": 90,
+  "max_retries": 2
+}

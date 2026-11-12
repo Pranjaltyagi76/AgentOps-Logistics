@@ -52,12 +52,13 @@ def _test_database_url() -> str | None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if os.environ.get("RUN_DB_TESTS") == "1":
-        return
     skip_db = pytest.mark.skip(reason="needs PostgreSQL; set RUN_DB_TESTS=1 (runs in CI)")
+    skip_llm = pytest.mark.skip(reason="calls the real Gemini API; set RUN_LLM_TESTS=1")
     for item in items:
-        if "db" in item.keywords:
+        if "db" in item.keywords and os.environ.get("RUN_DB_TESTS") != "1":
             item.add_marker(skip_db)
+        if "llm" in item.keywords and os.environ.get("RUN_LLM_TESTS") != "1":
+            item.add_marker(skip_llm)
 
 
 # --- Fakes for unit tests ------------------------------------------------------------------

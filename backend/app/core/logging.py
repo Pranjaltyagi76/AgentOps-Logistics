@@ -51,3 +51,6 @@ def configure_logging(level: str = "INFO") -> None:
         uv_logger = logging.getLogger(name)
         uv_logger.handlers = []
         uv_logger.propagate = True
+    # One INFO line per Gemini request is noise; failures still surface as warnings.
+    for name in ("httpx", "httpx2", "google_genai"):
+        logging.getLogger(name).setLevel(logging.WARNING)

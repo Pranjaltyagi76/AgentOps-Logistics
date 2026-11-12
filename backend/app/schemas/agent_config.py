@@ -4,6 +4,7 @@ A config is versioned like a scenario: once used by a run it is locked, and edit
 a new version. Provider secrets are never part of a config (they live in server env vars).
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -15,6 +16,7 @@ from app.services.agent_graph.rule_based import PROFILES
 
 PROMPTS_DIR = Path(__file__).resolve().parents[1] / "prompts"
 Provider = Literal["rule_based", "gemini", "openai"]
+GEMINI_MODEL_ID = re.compile(r"default|gemini-[a-z0-9][a-z0-9.\-]{1,60}")
 
 
 @lru_cache
@@ -55,6 +57,11 @@ class AgentConfigSpec(BaseModel):
     def _resolve_and_check(self) -> "AgentConfigSpec":
         if self.provider == "rule_based" and self.model_id not in PROFILES:
             raise ValueError(f"rule_based model_id must be one of {', '.join(PROFILES)}")
+        if self.provider == "gemini" and not GEMINI_MODEL_ID.fullmatch(self.model_id):
+            raise ValueError(
+                "gemini model_id must be 'default' (the server's GEMINI_MODEL) or a Gemini "
+                "model ID such as 'gemini-3.5-flash'"
+            )
         if self.system_prompt is None:
             self.system_prompt = load_prompt(self.prompt_version)
         return self
