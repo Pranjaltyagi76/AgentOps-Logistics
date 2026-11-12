@@ -20,7 +20,7 @@
 | 4 | Execution and trace | ✅ done (2026-11-10) | 4 |
 | 5 | Deterministic evaluator | ✅ done (2026-11-10) | 5 |
 | 6 | Gemini LLM agent | ✅ done (2026-11-12) | 3 (second half) |
-| 7 | Failure diagnosis (+ optional judge) | ⬜ | 6 |
+| 7 | Failure diagnosis (+ optional judge) | ✅ done (2026-11-12) | 6 |
 | 8 | Benchmark suites and regression | ⬜ | 7 |
 | 9 | Dashboard and reports | ⬜ | 8 |
 | 10 | RAG and expanded scenarios (30+) | ⬜ | 9 |
@@ -296,9 +296,40 @@ Tasks
 - UI: failure report panel with severity, stage, cited trace events (click → scroll to event).
 
 Acceptance
-- [ ] Every failure item cites an assertion and ≥1 trace ref, or is `insufficient_evidence`
-- [ ] Unit tests for every rule in the mapping table
-- [ ] Judge off ⇒ weights re-normalised; judge on ⇒ judge result stored with model + prompt version
+- [x] Every failure item cites an assertion and ≥1 trace ref, or is `insufficient_evidence` (asserted in every
+  rule test and on all 10 `rule-based-v2-flawed` runs, where each cited ref is checked to exist in that run's trace)
+- [x] Unit tests for every rule in the mapping table (`tests/test_diagnosis.py`, 25 tests incl. both stage branches,
+  the merge of "tool never called" + "evidence never retrieved", ordering and the fallback)
+- [x] Judge off ⇒ scores unchanged (the judge is not a weighted component, see notes); judge on ⇒ result stored
+  with judge model and prompt version, and score/verdict provably unchanged (`tests/test_judge.py`)
+- [x] Golden: `rule-based-v1` has no failures on all 10 scenarios; every `rule-based-v2-flawed` diagnosis
+  (main finding + failure types) matches its designed flaw (`tests/test_failure_reports.py`)
+- [x] Checked in the browser as owner (detailed diagnosis, one real judge call on the Gemini run: 1.00, low
+  uncertainty, score unchanged) and as demo viewer (no expected values, no judge reasoning, no judge button)
+
+Results: backend 322 tests (+2 opt-in `llm` smoke tests), frontend 23 tests; lint, typecheck and build clean.
+
+Implementation notes
+- Code: `app/domain/diagnosis_rules.py` (pure, `diag-v1`), `app/services/diagnosis/service.py`, migration 0007
+  (`failure_reports`, `evaluation_results.diagnoser_version`), `app/services/evaluation/judge.py`,
+  `app/prompts/judge_v1.md`; frontend `FailureReportPanel`, `JudgePanel`.
+- The rules map the evaluator's **actual** assertion IDs (architecture.md §8 was updated to match). Stages are
+  decided from the trace: a wrong root cause is a *decision* failure when the key record evidence was retrieved
+  and a *retrieval* failure when it was not; missing evidence is *retrieval* (never fetched) or *response*
+  (fetched, not cited). "Never called search_sop" and "SOP evidence never retrieved" are merged into one item.
+- Without an outcome (timeout, crash), outcome-dependent checks are not repeated as separate failures.
+  A missed escalation is reported once (not again as a missing required action).
+- Every evaluation is diagnosed in the same transaction; evaluations stored before Phase 7 are diagnosed on
+  first read (deterministic). `scripts/evaluate_runs.py --all` also back-fills.
+- Viewers get type, stage, severity, confidence, the viewer-safe summary, recommendation and trace refs; the
+  detailed `diagnosis` and `evidence` (which name expected values) are owner-only.
+- **Judge is advisory, not scored.** benchmark.md §12 requires calibration against ≥ 20 hand-labelled replies
+  before a judge may affect scores; that has not been done, so the result is stored and shown but never changes
+  score or verdict (the scenario weights have no judge component). Off by default (`LLM_JUDGE_ENABLED`),
+  owner-triggered per run, own daily cap (`LLM_JUDGE_DAILY_CAP`, default 30), shared Gemini throttle, JSON output
+  validated with one repair retry; invalid twice → 502 and nothing stored. Cited evidence IDs that were not in
+  the judge's input are kept apart as `unknown_refs`. Re-scoring a run keeps its judge result.
+- Judge requests get 40 s (not the agent's 20 s): during a slow Gemini period two 20 s requests timed out (504).
 
 ---
 

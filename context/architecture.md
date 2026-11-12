@@ -75,7 +75,7 @@ backend/
 │   │   ├── tools/               # registry, gateway, mock tool implementations, sop_search
 │   │   ├── tracing/             # TraceCollector, redaction
 │   │   ├── evaluation/          # Evaluator (uses domain/scoring), optional judge
-│   │   ├── diagnosis/           # Diagnoser
+│   │   ├── diagnosis/           # store/read failure reports (rules live in domain/diagnosis_rules.py)
 │   │   ├── benchmarks/          # SuiteService, ComparisonService
 │   │   └── reports/             # ReportService, CSV/JSON writers
 │   └── prompts/                 # versioned prompt files: agent_system_v1.md, judge_v1.md
@@ -153,10 +153,13 @@ class Evaluator:
     def evaluate(self, scenario: ScenarioSpec, trace: list[TraceEvent],
                  outcome: AgentOutcome | None, run: RunFacts) -> EvaluationResult: ...
 
-# services/diagnosis/diagnoser.py
-class Diagnoser:
-    version: str = "diag-v1"
-    def diagnose(self, evaluation: EvaluationResult, trace: list[TraceEvent]) -> list[FailureReportItem]: ...
+# domain/diagnosis_rules.py  (Phase 7, pure)
+DIAGNOSER_VERSION = "diag-v1"
+def diagnose(spec: ScenarioSpec, verdict: str, assertions: list[Assertion],
+             facts: RunFacts) -> Diagnosis: ...      # status + ordered FailureItems (one primary)
+
+# services/evaluation/judge.py  (Phase 7, advisory)
+def judge_input(spec, facts) -> dict   # rubric, customer_message, evidence, reply — no ground truth
 ```
 
 ## 4. Agent graph (LangGraph)
@@ -279,24 +282,35 @@ trace + outcome + scenario ground truth
 
 ## 8. Diagnosis rules (diag-v1)
 
-| Failed assertion | Failure type | Likely stage | Default severity |
+Implemented in Phase 7 (`app/domain/diagnosis_rules.py`), keyed on the evaluator's actual assertion IDs.
+
+| Failed assertion | Failure type | Likely stage | Severity |
 |---|---|---|---|
-| `root_cause_match` | `wrong_root_cause` | decision | high |
-| `required_evidence_cited` | `missing_evidence` | retrieval | medium |
-| `citation_was_retrieved` | `unsupported_claim` | response | high |
-| `required_tool_called` | `required_action_missing` (action tool) / `missing_evidence` (read tool) | planning | medium |
-| `no_disallowed_tool` | `wrong_tool` | planning | medium |
+| `root_cause_match` | `wrong_root_cause` | decision if all key record evidence was retrieved, else retrieval | high |
+| `required_evidence_cited` | `missing_evidence` | retrieval (never fetched) / response (fetched, not cited) | medium |
+| `citation_was_retrieved` | `unsupported_claim` (cited an ID no tool returned) | response | high |
+| `required_tools_called` | `missing_evidence` (read tool) / `required_action_missing` (action tool) | planning | medium |
+| `required_actions_performed` | `required_action_missing` (merged with the item above) | planning | medium |
+| `no_disallowed_tool`, `sequence_constraints_met`, `within_tool_budget` | `wrong_tool` | planning | medium |
 | `tool_args_valid` | `invalid_tool_arguments` | tool_use | medium |
 | `tool_error_handled` | `tool_failure_unhandled` | tool_use | high |
 | `no_forbidden_action` (gate) | `forbidden_action` | policy | critical |
 | `escalation_expected` | `missed_escalation` (gate) / `unnecessary_escalation` | decision | critical / low |
-| `constraint:*` (ETA, compensation — gates) | `unsupported_claim` | response | critical |
+| `escalation_flag_consistent` | `unsupported_claim` (outcome contradicts the actions) | response | medium |
+| `constraint:must_not_invent_eta` / `must_not_promise_compensation` (gates) | `unsupported_claim` | response | critical |
 | `constraint:*` (others) | `response_not_grounded` | response | medium |
-| `within_time_limit` | `timeout` | execution | high |
-| `outcome_valid` / run error | `agent_crash` | execution | high |
-| no failed assertion explains a FAIL | `insufficient_evidence` | unknown | low |
+| `outcome_submitted` | `timeout` (timed out / step limit) / `agent_crash` (malformed output, agent error) | execution | high |
+| FAIL / FAILED_POLICY with no item | `insufficient_evidence` | unknown | low |
 
-Every report item cites the assertion ID and the trace refs it cites. Confidence: `high` if the assertion is exact-match with direct trace evidence, `medium` if heuristic (regex/keyword), `low` otherwise.
+- Every item cites its assertion IDs and ≥ 1 trace ref. When the assertion cites nothing that supports the item
+  (a tool never called, evidence never fetched), the item cites where the run ended (the outcome, else the last event).
+- "Tool never called" + "its evidence never retrieved" become one planning item. A missed escalation is not
+  repeated as a missing required action. Without an outcome, outcome-dependent checks are not reported separately.
+- Items are sorted by severity, then stage (planning → retrieval → tool_use → decision → policy → response →
+  execution); the first is the *main finding*.
+- Confidence: `high` for exact-match checks, `medium` for heuristic ones (response regexes, "acknowledged the
+  tool failure"), `low` for `insufficient_evidence`.
+- Verdict ERROR (platform failure) is not diagnosed; a PASS can still list low/medium items.
 
 ## 9. Data model
 
@@ -314,7 +328,7 @@ Refines PROJECT.md §14. All PKs are UUID v4; all timestamps `timestamptz` UTC; 
 | `runs` | `scenario_id` (version row), `agent_config_id`, `suite_run_id?` (FK added in Phase 8), denormalised `scenario_key/version`, `agent_name/version`, `provider`; `status`, `stop_reason?`, `error_kind?` (`agent`/`infra`), `error_json?`, `cancel_requested`, `started_at`, `finished_at`, `latency_ms`, `steps`, `tool_call_count`, `usage_json?`, `final_outcome_json?`, `actions_json?`, `verdict?`, `score?`, `policy_failed`, `config_snapshot_json`, `versions_json`, `is_demo`, `triggered_by_role`, `triggered_by` | idx(`status`,`created_at`), idx(`created_at`), idx(`suite_run_id`), idx(`agent_config_id`), idx(`scenario_id`) |
 | `trace_events` | columns of §6 | unique(`run_id`,`seq`); idx(`run_id`) |
 | `evaluation_results` | `run_id`, `evaluator_version`, `score_breakdown_json`, `assertions_json`, `task_success`, `verdict`, `policy_violations_json`, `judge_json?` | unique(`run_id`,`evaluator_version`) |
-| `failure_reports` | `run_id`, `diagnoser_version`, `failure_type`, `severity`, `likely_stage`, `evidence_json`, `diagnosis`, `debugging_recommendation`, `confidence` | idx(`run_id`), idx(`failure_type`) |
+| `failure_reports` | `run_id`, `evaluation_id`, `diagnoser_version`, `evaluator_version`, `position`, `is_primary`, `failure_type`, `severity`, `likely_stage`, `confidence`, `assertion_ids`, `trace_refs`, `summary` (viewer-safe), `diagnosis` (owner), `debugging_recommendation`, `evidence_json` (owner) | idx(`run_id`), idx(`failure_type`), idx(`evaluation_id`); `evaluation_results.diagnoser_version` marks a diagnosed evaluation (also with no failures) |
 | `documents` | `slug`, `version`, `title`, `document_type`, `content`, `metadata_json` | unique(`slug`,`version`) |
 | `document_chunks` | `document_id`, `section_id`, `text`, `tsv` (tsvector), `embedding?` (vector, Phase 10) | unique(`document_id`,`section_id`); GIN(`tsv`) |
 | `usage_counters` | `day` (date UTC), `key` (e.g. `llm_runs`), `count` | unique(`day`,`key`) |
@@ -331,6 +345,8 @@ Prefix `/api/v1`. Endpoint list in PROJECT.md §15, plus:
 | `GET /dashboard/summary` | KPIs computed server-side |
 | `GET /settings/status` | provider configured?, limits, versions (no secrets) |
 | `GET /taxonomy` | categories, root-cause enums, failure types, tool names (for UI and editor validation) |
+| `GET /runs/{id}/failure-report` | diag-v1 report of the latest evaluation; `diagnosis`/`evidence` owner-only |
+| `POST /runs/{id}/judge` | owner: advisory LLM judge (409 off / no key, 429 cap or quota, 502 invalid output) |
 | `POST /scenarios/validate` | validate JSON without saving |
 | `POST /scenarios/{id}/archive`, `POST /scenarios/{id}/restore` | archive / restore every version (instead of DELETE) |
 | `GET /scenarios/export`, `GET /scenarios/{id}/export` | owner-only JSON export in schema key order |

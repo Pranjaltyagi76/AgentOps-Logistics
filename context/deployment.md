@@ -136,7 +136,9 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `MAX_REQUEST_BYTES` | no | `1000000` | request body limit (413) |
 | `RUN_TIMEOUT_SECONDS` | no | `60` | rule-based runs use 10 |
 | `MAX_AGENT_STEPS` / `MAX_TOOL_CALLS` | no | `8` / `10` | |
-| `LLM_JUDGE_ENABLED` | no | `false` | |
+| `LLM_JUDGE_ENABLED` | no | `false` | advisory LLM judge, owner-triggered per run (Phase 7) |
+| `LLM_JUDGE_MODEL` | no | `GEMINI_MODEL` | model for the judge |
+| `LLM_JUDGE_DAILY_CAP` | no | `30` | judge calls per UTC day |
 | `LOG_LEVEL` | no | `INFO` | |
 | `OPENAI_API_KEY` | no | — | optional adapter (Later) |
 

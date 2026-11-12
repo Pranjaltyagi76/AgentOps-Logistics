@@ -293,6 +293,12 @@ Re-evaluating an old run with a new evaluator adds a new `evaluation_results` ro
 - Output JSON: `{score: 0-1, rationale, evidence_refs: [evidence IDs], uncertainty: low|medium|high}`; schema-validated, one retry.
 - Stored separately in `evaluation_results.judge_json` with judge model ID and `judge_vN` prompt version.
 - Calibration: before enabling, judge ≥ 20 manually labelled responses and record agreement in §15. Known limitation: self-preference when the judge and the agent are the same model family.
+- **Status (Phase 7):** implemented as `judge_v1` (`app/prompts/judge_v1.md`, Gemini, JSON schema output, one
+  repair retry) but **advisory only**: not calibrated yet, so it never changes a score or verdict and the
+  scenario weights have no judge component. Owner-triggered, off by default, own daily cap. Viewers see the
+  judge's score and uncertainty, not its rationale (which can echo the rubric). If the scenario has no rubric, a
+  generic one is used. The rubric itself may describe the expected explanation; that is by design (it is the
+  judging criterion), and it is never shown to the agent.
 
 ## 13. Regression comparison rules
 
@@ -323,3 +329,6 @@ Scenario key + version · agent config snapshot (incl. prompt text) · provider 
 - 10–31 scenarios is a small benchmark; differences of one or two scenarios are not statistically meaningful.
 - LLM results vary run-to-run even at temperature 0.
 - Rule-based agents are tuned on the same scenarios they are tested on; they validate the platform, not agent capability.
+- The LLM judge is uncalibrated and the same model family as the Gemini agent (self-preference); it is advisory only.
+- Failure diagnoses are rule-based post-run analysis of the trace; the "likely stage" is an inference from which
+  evidence was retrieved and cited, not knowledge of the model's reasoning.

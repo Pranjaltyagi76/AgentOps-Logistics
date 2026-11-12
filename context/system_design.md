@@ -73,10 +73,11 @@ Each decision is final unless revisited explicitly; record changes here.
 | D-10 | **Startup sweeper** marks `queued`/`running` runs older than start time as `errored(orphaned)` | Free instances sleep/restart and kill in-flight runs | No run stays "running" forever |
 | D-11 | **Thought parts discarded at the provider adapter** | Spec forbids storing chain-of-thought; Gemini may return thought summaries | Trace stores only tool calls, visible messages, structured outcome. Gemini 3 thought *signatures* (opaque, required on the next turn) live only in the provider's memory for one run |
 | D-12 | **Structured outcome via a terminal `submit_outcome` tool** | Combining free tool-calling with a JSON response schema is fragile across models; a tool with a Pydantic schema is uniform | Malformed outcome → one repair retry → `agent_error(malformed_output)` |
-| D-13 | **Deterministic checks first; LLM judge optional, tone/clarity only** | Auditable, free, CI-friendly | When judge is off, its weight is redistributed proportionally |
+| D-13 | **Deterministic checks first; LLM judge optional, tone/clarity only** | Auditable, free, CI-friendly | Phase 7: the judge is **advisory** (stored and shown, never scored) until calibrated against hand-labelled replies (benchmark.md §12) |
 | D-14 | **JWT bearer tokens** (not cookies) | Frontend (Vercel) and backend (Render) are on different sites; third-party cookies are unreliable | Token kept in memory + `sessionStorage`; short expiry |
 | D-15 | **Lexical SOP search (Postgres full-text) in MVP; pgvector later** | Works with zero embedding cost; Neon supports pgvector when needed | Retrieval interface hides which backend is used |
 | D-16 | **Daily LLM run cap + global concurrency limit** stored/enforced server-side | Protects free Gemini quota from public visitors | Viewers only get rule-based agents; owner gets capped Gemini runs |
+| D-17 | **Rule-based diagnosis, computed with the evaluation** | Free, reproducible, testable; an LLM narrative could invent causes | Diagnoses describe the trace, never hidden reasoning; detailed text that names expected values is owner-only |
 
 ## 5. Key flows
 
