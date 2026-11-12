@@ -60,7 +60,7 @@ def test_v1_passes_every_scenario(
     assert {k: (r["verdict"], r["score"]) for k, r in runs.items()} == {
         k: ("PASS", 100.0) for k in SCENARIOS
     }
-    assert all(r["versions"]["evaluator"] == "eval-v1" for r in runs.values())
+    assert all(r["versions"]["evaluator"] == "eval-v2" for r in runs.values())
 
 
 def test_v2_fails_in_the_designed_ways(

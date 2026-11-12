@@ -6,7 +6,7 @@ Usage (from backend/, with the database seeded so SOP search works):
     uv run python ../scripts/run_agent.py --scenario delay_hub_congestion_001 --verbose
 
 The "expected" columns come from the hidden ground truth. They are shown here for developers
-only; the agent never sees them. Verdict and score come from the eval-v1 evaluator, computed in
+only; the agent never sees them. Verdict and score come from the eval-v2 evaluator, computed in
 memory (no run or trace is saved).
 """
 

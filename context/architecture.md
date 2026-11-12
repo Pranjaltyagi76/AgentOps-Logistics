@@ -149,7 +149,7 @@ class InProcessExecutor:   # ThreadPoolExecutor(max_workers=MAX_CONCURRENT_RUNS)
 
 # services/evaluation/evaluator.py
 class Evaluator:
-    version: str = "eval-v1"
+    version: str = "eval-v2"
     def evaluate(self, scenario: ScenarioSpec, trace: list[TraceEvent],
                  outcome: AgentOutcome | None, run: RunFacts) -> EvaluationResult: ...
 

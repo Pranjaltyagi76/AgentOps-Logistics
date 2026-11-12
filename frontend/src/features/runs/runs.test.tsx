@@ -79,7 +79,7 @@ const trace: Trace = {
 function evaluationFor(owner: boolean): Evaluation {
   return {
     run_id: 'run-1',
-    evaluator_version: 'eval-v1',
+    evaluator_version: 'eval-v2',
     verdict: 'FAILED_POLICY',
     score: 61.7,
     task_success: false,

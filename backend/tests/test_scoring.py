@@ -1,4 +1,4 @@
-"""Golden tests for eval-v1: hand-built traces -> exact assertions, score and verdict.
+"""Golden tests for eval-v2: hand-built traces -> exact assertions, score and verdict.
 
 Default weights: root cause 25, evidence 20, tool correctness 20, policy 20, response 15.
 """

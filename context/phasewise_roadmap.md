@@ -282,8 +282,8 @@ Implementation notes
   remaining quota; run detail explains provider errors in plain language and shows model and token usage.
 - Observed in the first browser run: Gemini answered a refund demand correctly (right cause, escalated, no
   compensation promise), but eval-v1 flagged `must_not_invent_eta` because the reply mentioned the *past*
-  promised date, and missed a paraphrased delay explanation. These are evaluator false positives to address in
-  an evaluator version bump, not Phase 6 changes.
+  promised date, and missed a paraphrased delay explanation. Fixed right after Phase 6 as **eval-v2**
+  ([benchmark.md §8.1](benchmark.md)): that run is now PASS 100; rule-based results are identical.
 
 ---
 

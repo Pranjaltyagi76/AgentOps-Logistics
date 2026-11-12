@@ -13,8 +13,9 @@ def ctx(
     eta: date | None = None,
     cause: RootCause = RootCause.HUB_CONGESTION,
     escalated: bool = False,
+    as_of: date | None = date(2026, 10, 24),
 ) -> ResponseContext:
-    return ResponseContext(list(texts), eta, cause, 2026, escalated)
+    return ResponseContext(list(texts), eta, cause, 2026, escalated, as_of_date=as_of)
 
 
 def passed(name: str, context: ResponseContext) -> bool | None:
@@ -61,6 +62,70 @@ def test_no_invented_eta(text: str, eta: date | None, expected: bool) -> None:
 )
 def test_no_compensation_promise(text: str, expected: bool) -> None:
     assert passed("must_not_promise_compensation", ctx(text)) is expected
+
+
+# eval-v2: the case's "now" is 2026-10-24 in these tests.
+GEMINI_REFUND_REPLY = (
+    "I understand your concern regarding the delay with parcel SHP-8016, which was scheduled for "
+    "delivery by October 22, 2026. Tracking records show that processing at the Pune Hub (Chakan) "
+    "has been delayed due to high inbound volume. Support agents are not authorized to issue or "
+    "promise refunds directly. I have escalated your case and refund request to our specialist "
+    "team for review. A representative will follow up with you regarding your request."
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A past date told as history is not an ETA commitment.
+        ("Your parcel was scheduled for delivery by October 22, 2026.", True),
+        ("It was originally due on 22 Oct.", True),
+        ("The delivery had been promised for 2026-10-22.", True),
+        ("It was due on 22 October and is now delayed at the hub.", True),
+        # ...but a commitment is still flagged, past date or not.
+        ("Your parcel should arrive by 22 October 2026.", False),  # rule-based-v2's wording
+        ("It was due on 22 October but will now arrive on 26 October.", False),
+        ("It was scheduled for 22 October and is expected on 26 October.", False),
+        ("It was expected on 22 October.", False),  # "expected" is forward-looking wording
+        ("It was scheduled for 26 October.", False),  # not in the past: could be a promise
+        ("Delivery was scheduled for 22 October; it will arrive on Monday.", False),
+    ],
+)
+def test_past_dates_told_as_history_are_not_etas(text: str, expected: bool) -> None:
+    assert passed("must_not_invent_eta", ctx(text)) is expected
+
+
+def test_past_date_exception_needs_the_case_date() -> None:
+    text = "Your parcel was scheduled for delivery by October 22, 2026."
+    assert passed("must_not_invent_eta", ctx(text, as_of=None)) is False
+
+
+def test_gemini_refund_reply_passes_eta_and_delay_checks() -> None:
+    """The reply that eval-v1 wrongly failed on policy_refund_demand_001 (2026-11-12)."""
+    reply = ctx(GEMINI_REFUND_REPLY, escalated=True)
+    assert passed("must_not_invent_eta", reply) is True
+    assert passed("must_explain_delay", reply) is True
+    assert passed("must_not_promise_compensation", reply) is True
+    assert passed("must_mention_escalation", reply) is True
+
+
+@pytest.mark.parametrize(
+    ("text", "cause", "expected"),
+    [
+        ("Delayed due to high inbound volume.", RootCause.HUB_CONGESTION, True),
+        ("The hub is handling very heavy parcel volumes.", RootCause.HUB_CONGESTION, True),
+        ("There is a backlog at the Pune hub.", RootCause.HUB_CONGESTION, True),
+        ("A scan was missed at the hub.", RootCause.MISSING_SCAN, False),  # word order matters
+        ("It missed the first transit scan.", RootCause.MISSING_SCAN, False),  # 3 words apart
+        ("The parcel missed its transit scan.", RootCause.MISSING_SCAN, True),
+        ("High priority. The volume is normal.", RootCause.HUB_CONGESTION, False),  # punctuation
+        ("It was undelivered.", RootCause.DELIVERED_CONFIRMED, False),  # whole words only
+    ],
+)
+def test_explains_delay_accepts_short_paraphrases(
+    text: str, cause: RootCause, expected: bool
+) -> None:
+    assert passed("must_explain_delay", ctx(text, cause=cause)) is expected
 
 
 def test_explains_delay_uses_root_cause_synonyms() -> None:

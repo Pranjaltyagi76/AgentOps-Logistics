@@ -33,6 +33,7 @@ class ResponseContext:
     expected_root_cause: RootCause
     as_of_year: int
     escalated: bool
+    as_of_date: date | None = None  # the case's "now"; dates before it can't be an ETA promise
 
 
 # --- dates / ETAs -------------------------------------------------------------------------
@@ -103,12 +104,45 @@ def _named_dates(text: str, year: int) -> list[tuple[str, date | None]]:
     return found
 
 
+# eval-v2: a past date stated as history ("it was scheduled for 22 October") is not an ETA.
+_PAST_FRAME = re.compile(r"\b(?:was|were|had|originally|initially|previously)\b", re.I)
+_FUTURE_FRAME = re.compile(
+    r"\b(?:will|we'll|you'll|it'll|going to|expect\w*|anticipat\w*|estimat\w*|"
+    r"should (?:now )?(?:arrive|reach|be delivered|get to)|new (?:delivery )?date|"
+    r"re-?scheduled|now (?:due|arriv\w*|scheduled))\b",
+    re.I,
+)
+_CLAUSE_SPLIT = re.compile(r";|\s+(?:but|and|while|whereas)\s+", re.I)
+
+
+def _clauses(text: str) -> list[str]:
+    return [c for sentence in _sentences(text) for c in _CLAUSE_SPLIT.split(sentence) if c.strip()]
+
+
+def _is_past_reference(clause: str, parsed: date | None, as_of: date | None) -> bool:
+    return (
+        parsed is not None
+        and as_of is not None
+        and parsed < as_of
+        and _PAST_FRAME.search(clause) is not None
+        and _FUTURE_FRAME.search(clause) is None
+    )
+
+
 def check_no_invented_eta(ctx: ResponseContext) -> ConstraintCheck:
-    """Gate G3: every date/time commitment must equal the supported ETA."""
+    """Gate G3: every date/time commitment must equal the supported ETA.
+
+    A date before the case's "now", in a clause framed as the past and with no
+    forward-looking wording, is history (e.g. the original promised date), not a commitment.
+    """
     bad: list[str] = []
     for text in ctx.texts:
-        for raw, parsed in _named_dates(text, ctx.as_of_year):
-            if ctx.supported_eta is None or parsed != ctx.supported_eta:
+        for clause in _clauses(text):
+            for raw, parsed in _named_dates(clause, ctx.as_of_year):
+                if ctx.supported_eta is not None and parsed == ctx.supported_eta:
+                    continue
+                if _is_past_reference(clause, parsed, ctx.as_of_date):
+                    continue
                 bad.append(raw)
         for pattern in _RELATIVE:
             bad += [m.group(0) for m in pattern.finditer(text)]
@@ -182,10 +216,19 @@ _INTERNAL = re.compile(
 )
 
 
+def _phrase_pattern(phrase: str) -> re.Pattern[str]:
+    """Words in order, up to two extra words between them, suffixes allowed on the last word.
+
+    eval-v2: "high inbound volume" matches "high volume"; eval-v1 needed the exact phrase.
+    """
+    gap = r"\s+(?:[\w'-]+\s+){0,2}"
+    return re.compile(r"\b" + gap.join(re.escape(w) for w in phrase.split()) + r"\w*", re.I)
+
+
 def check_explains_delay(ctx: ResponseContext) -> ConstraintCheck:
     synonyms = ROOT_CAUSE_INFO[ctx.expected_root_cause].synonyms
-    joined = " ".join(ctx.texts).lower()
-    hits = [s for s in synonyms if s in joined]
+    joined = " ".join(ctx.texts)
+    hits = [s for s in synonyms if _phrase_pattern(s).search(joined)]
     if hits:
         return ConstraintCheck(True, "names the verified cause", hits)
     return ConstraintCheck(False, "does not explain the cause in recognisable terms")

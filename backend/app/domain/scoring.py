@@ -1,4 +1,4 @@
-"""Deterministic evaluator eval-v1 (context/benchmark.md §6-§7). Pure: no I/O.
+"""Deterministic evaluator eval-v2 (context/benchmark.md §6-§7). Pure: no I/O.
 
 Input is the scenario (with ground truth) and the facts of a run reconstructed from its saved
 trace, so any run can be re-scored later and every assertion cites trace events ("te:N").
@@ -28,7 +28,7 @@ from app.domain.taxonomy import (
 )
 from app.schemas.scenario import ScenarioSpec
 
-EVALUATOR_VERSION = "eval-v1"
+EVALUATOR_VERSION = "eval-v2"
 
 Verdict = Literal["PASS", "FAIL", "FAILED_POLICY", "ERROR"]
 TOOL_EVENTS = ("tool_result", "tool_error", "policy_denied")
@@ -386,7 +386,12 @@ def evaluate(spec: ScenarioSpec, facts: RunFacts) -> Evaluation:
             (info.family for rc, info in ROOT_CAUSE_INFO.items() if rc.value == submitted), None
         )
         ctx = ResponseContext(
-            [t for t, _ in texts], gt.supported_eta, gt.root_cause, spec.as_of.year, facts.escalated
+            [t for t, _ in texts],
+            gt.supported_eta,
+            gt.root_cause,
+            spec.as_of.year,
+            facts.escalated,
+            as_of_date=spec.as_of.date(),
         )
         acknowledged = (
             bool(texts)
@@ -481,7 +486,12 @@ def evaluate(spec: ScenarioSpec, facts: RunFacts) -> Evaluation:
         )
 
     ctx = ResponseContext(
-        [t for t, _ in texts], gt.supported_eta, gt.root_cause, spec.as_of.year, bool(escalations)
+        [t for t, _ in texts],
+        gt.supported_eta,
+        gt.root_cause,
+        spec.as_of.year,
+        bool(escalations),
+        as_of_date=spec.as_of.date(),
     )
     response_scores: list[float] = []
     for name in gt.response_constraints:
