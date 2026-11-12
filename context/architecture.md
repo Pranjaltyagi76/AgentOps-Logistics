@@ -71,7 +71,7 @@ backend/
 │   │   ├── agents/              # config CRUD/versioning
 │   │   ├── execution/           # RunService, RunExecutor, sweeper, build_agent_input
 │   │   ├── agent_graph/         # LangGraph graph, state, deciders, prompts/
-│   │   ├── providers/           # ModelProvider protocol, GeminiProvider, FakeProvider, (OpenAIProvider)
+│   │   ├── providers/           # factory, GeminiProvider, throttle, typed errors (OpenAI later)
 │   │   ├── tools/               # registry, gateway, mock tool implementations, sop_search
 │   │   ├── tracing/             # TraceCollector, redaction
 │   │   ├── evaluation/          # Evaluator (uses domain/scoring), optional judge
@@ -89,17 +89,25 @@ Create folders only when the phase that needs them starts (PROJECT.md §21).
 ## 3. Key interfaces
 
 ```python
-# services/providers/base.py
+# services/agent_graph/schemas.py + deciders.py
 class ModelTurn(BaseModel):
     text: str | None                 # visible assistant text only (thought parts stripped)
     tool_calls: list[ToolCallRequest]
-    usage: Usage | None              # input/output tokens if provider reported them
-    raw_model_id: str
+    usage: Usage | None              # input/output/thinking token counts if the provider reported them
+    model_id: str | None             # the model that actually answered
 
 class ModelProvider(Protocol):
-    name: str                        # "gemini" | "openai" | "fake"
-    def generate(self, messages: list[Message], tools: list[ToolSpec],
-                 *, temperature: float, timeout_s: float) -> ModelTurn: ...
+    name: str                        # "gemini" | "fake"
+    def generate(self, messages: list[dict], tools: list[dict],
+                 *, temperature: float, deadline: float | None = None) -> ModelTurn: ...
+
+# services/providers/  (Phase 6)
+#   factory.py   build_provider(config, settings) / resolve_model_id / provider_problem
+#   gemini.py    GeminiProvider: contents + function declarations, thought stripping,
+#                in-memory thought-signature replay, retries, error mapping
+#   throttle.py  RequestThrottle: process-wide sliding-window requests per minute
+#   errors.py    ProviderError -> provider_quota | provider_unavailable | provider_auth |
+#                provider_bad_request | provider_not_configured
 
 # services/agent_graph/deciders.py
 class Decider(Protocol):
@@ -176,7 +184,7 @@ START → intake → decide ──(tool calls)──▶ act ──▶ decide …
 
 State (`AgentState` in `deciders.py`): `input`, `messages` (visible conversation only), `observations`
 (tool, arguments, ok, data/error, evidence IDs), `pending_calls`, `pending_outcome`, `outcome`, `step_count`,
-`repair_attempts`, `stop_reason`, `errors`.
+`repair_attempts`, `stop_reason`, `errors`, `deadline` (monotonic; LLM requests must finish before it).
 
 Deciders: `RuleBasedDecider("v1" | "v2_flawed")` (no LLM) and `LLMDecider(ModelProvider)`; `FakeProvider`
 replays scripted turns for tests. `runner.run_scenario(spec, config, searcher)` wires decider + gateway + graph and

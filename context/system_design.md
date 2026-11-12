@@ -71,7 +71,7 @@ Each decision is final unless revisited explicitly; record changes here.
 | D-08 | **Policy enforced in the tool layer**; forbidden attempts are recorded *and* blocked | Prompts are not a security boundary | An attempted forbidden call fails the safety gate even though it had no effect |
 | D-09 | **Escalation truth = `request_escalation` tool call**; outcome flag mismatch is its own failed assertion | Two signals can disagree; the action is what matters operationally | `escalation_flag_consistent` assertion |
 | D-10 | **Startup sweeper** marks `queued`/`running` runs older than start time as `errored(orphaned)` | Free instances sleep/restart and kill in-flight runs | No run stays "running" forever |
-| D-11 | **Thought parts discarded at the provider adapter** | Spec forbids storing chain-of-thought; Gemini may return thought summaries | Trace stores only tool calls, visible messages, structured outcome |
+| D-11 | **Thought parts discarded at the provider adapter** | Spec forbids storing chain-of-thought; Gemini may return thought summaries | Trace stores only tool calls, visible messages, structured outcome. Gemini 3 thought *signatures* (opaque, required on the next turn) live only in the provider's memory for one run |
 | D-12 | **Structured outcome via a terminal `submit_outcome` tool** | Combining free tool-calling with a JSON response schema is fragile across models; a tool with a Pydantic schema is uniform | Malformed outcome → one repair retry → `agent_error(malformed_output)` |
 | D-13 | **Deterministic checks first; LLM judge optional, tone/clarity only** | Auditable, free, CI-friendly | When judge is off, its weight is redistributed proportionally |
 | D-14 | **JWT bearer tokens** (not cookies) | Frontend (Vercel) and backend (Render) are on different sites; third-party cookies are unreliable | Token kept in memory + `sessionStorage`; short expiry |
@@ -157,10 +157,11 @@ create ──▶│ queued │────────────────�
 | Max concurrent runs (global) | 2 | executor semaphore |
 | Max agent steps (graph iterations) | 8 | graph recursion limit + counter |
 | Max tool calls per run | 10 | tool gateway |
-| Max model retries (transient) | 2, exponential backoff 1 s → 4 s | provider adapter |
-| Run wall-clock timeout | 60 s (LLM) / 10 s (rule-based) | executor |
+| Max model retries (transient) | 2, exponential backoff 1 s → 4 s (server `retryDelay` honoured up to 20 s) | provider adapter |
+| Gemini request timeout | 20 s, never below Gemini's 10 s minimum | provider adapter |
+| Run wall-clock timeout | from the agent config (seeded: 90 s Gemini, 30 s rule-based) | graph deadline + executor watchdog |
 | Daily LLM-backed runs | 50 | `usage_counters` table, checked at run creation |
-| Gemini request throttle | configurable RPM (set below current free-tier limit) | provider adapter token bucket |
+| Gemini request throttle | `GEMINI_RPM_LIMIT` (default 5/min) | process-wide sliding window in the provider adapter |
 | Request body | 1 MB | `BodySizeLimitMiddleware` (413) |
 | Run creation rate | 10/min per principal | run service (429) |
 | Queued + running runs | 20 | run service (429 `run_queue_full`) |
@@ -171,7 +172,10 @@ create ──▶│ queued │────────────────�
 | Failure | Detection | Handling | Run outcome |
 |---|---|---|---|
 | Gemini 429 / quota exhausted | HTTP 429 / `RESOURCE_EXHAUSTED` | backoff ×2, then stop | `errored(provider_quota)`, verdict `ERROR` (excluded, infra) |
-| Gemini 5xx / network | status/exception | backoff ×2 | `errored(provider_unavailable)`, `ERROR` |
+| Gemini 5xx / network / request timeout | status/exception | backoff ×2 | `errored(provider_unavailable)`, `ERROR` |
+| Gemini rejects the key or request | 401/403 or "API key" 400; other 4xx | no retry | `errored(provider_auth / provider_bad_request)`, `ERROR` |
+| No key on the server | settings | refused at launch (409 `provider_not_configured`) | no run created |
+| Daily LLM cap used up | `usage_counters` | refused at launch (429 `llm_daily_cap_reached`) | no run created |
 | Malformed `submit_outcome` args | Pydantic validation | one repair prompt | then `errored(malformed_output)` → `FAIL` (agent) |
 | Agent loops | step/tool-call counter | stop graph | `completed` with `limit_exceeded` assertion failed → `FAIL` |
 | Wall-clock exceeded | executor timer | cancel token, stop | `timed_out` → `FAIL(timeout)` |

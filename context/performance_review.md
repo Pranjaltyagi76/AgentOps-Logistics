@@ -82,7 +82,7 @@ Checklist
 - [ ] Budgets in §2–§4 re-measured for the endpoints/features touched in the phase
 - [ ] No new N+1 queries; new list queries use an index
 - [ ] Agent limits (steps, tool calls, timeout) still enforced — tests green
-- [ ] Token usage per LLM run recorded (from Phase 6)
+- [x] Token usage per LLM run recorded (from Phase 6; stored in `runs.usage_json` and per turn in the trace)
 - [ ] Gemini 429s in the period counted; throttle adjusted if needed
 - [ ] DB size and trace growth checked against budget; retention policy applied if > 50%
 - [ ] Frontend bundle size checked after adding dependencies
@@ -106,6 +106,7 @@ Actions:            <issues created / fixes made>
 | # | Date | Phase | Environment | Summary |
 |---|---|---|---|---|
 | 1 | 2026-11-10 | 4 | local (Windows, Postgres 16.2 portable, in-process client) | All measured API and run budgets met; see Review 1 |
+| 2 | 2026-11-12 | 6 | local + Gemini free tier (`gemini-3.5-flash`) | First Gemini runs: ~11 s, ~15k input tokens per run; one slow-provider episode; see Review 2 |
 
 ### Review 1 — 2026-11-10 — after Phase 4
 Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
@@ -129,6 +130,31 @@ Findings:           everything well inside budget; each trace event is its own s
                     at this scale. Frontend initial JS 202 KB gzip (budget 300 KB).
 Not measured yet:   cold start on Render, Neon latency, memory on the free instance (Phase 11).
 Actions:            none needed.
+
+### Review 2 — 2026-11-12 — after Phase 6
+Git SHA:            6e1cec0 + Phase 6 working tree (committed right after this review)
+Environment:        local Windows dev machine, Postgres 16.2 (portable), uvicorn + threaded executor,
+                    Gemini free tier, requested model `gemini-3.5-flash` (served as `gemini-3.6-flash`)
+Dataset:            3 real Gemini runs (1 smoke test in memory, 2 from the UI on `policy_refund_demand_001`)
+
+| Measurement | Target | Measured | N |
+|---|---|---|---|
+| Gemini run wall-clock (completed runs) | p50 ≤ 20 s, hard 90 s (config) | 10.1 s and 12.6 s | 2 |
+| Model calls per run | ≤ 8 + 1 repair | 4 and 4 | 2 |
+| Input tokens per run | measure | 15,753 and 14,843 (≈ 2.7k on the first call, growing ≈ 1.2k per turn) | 2 |
+| Output tokens per run | measure | 389 and 447 | 2 |
+| Thinking tokens (minimal level) | measure | not reported (None) | 2 |
+| Single Gemini call, normal | — | 1.5–5.2 s (longest = the final `submit_outcome`) | 8 |
+| Gemini calls during a slow period | — | 32.6 s and 20.1 s (a 30 s timeout + retry), then a 400 | 1 run |
+
+Findings:           normal runs are well inside budget, and input tokens dominate cost (the whole conversation is
+                    resent every turn). During one slow-provider period requests hung until the timeout; the run
+                    then sent a 7 s request deadline, which Gemini rejects (minimum 10 s), so it ended `errored`
+                    (`provider_bad_request`, infra, not scored against the agent).
+Actions:            request timeout lowered to 20 s so a hung request is retried sooner; 10 s floor on every request
+                    deadline; no retry unless a full 10 s request still fits before the run deadline; retries now
+                    log a warning. Token budget: tentatively ≤ 25k input tokens per run until 10 runs are measured
+                    in a Gemini suite (Phase 8).
 
 ## 8. Known hotspots and optimisation playbook
 

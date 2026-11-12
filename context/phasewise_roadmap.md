@@ -19,7 +19,7 @@
 | 3 | Agent graph + rule-based agents + agent configs | ✅ done (2026-11-09) | 3 (first half) |
 | 4 | Execution and trace | ✅ done (2026-11-10) | 4 |
 | 5 | Deterministic evaluator | ✅ done (2026-11-10) | 5 |
-| 6 | Gemini LLM agent | ⬜ | 3 (second half) |
+| 6 | Gemini LLM agent | ✅ done (2026-11-12) | 3 (second half) |
 | 7 | Failure diagnosis (+ optional judge) | ⬜ | 6 |
 | 8 | Benchmark suites and regression | ⬜ | 7 |
 | 9 | Dashboard and reports | ⬜ | 8 |
@@ -247,10 +247,43 @@ Tasks
 - Optional `OpenAIProvider` stub behind the same protocol (Later).
 
 Acceptance
-- [ ] With a key: one scenario completes end-to-end with Gemini and is evaluated
-- [ ] Without a key: app works; LLM configs show "not configured"; launching one returns a clear 409/422
-- [ ] No thought content in any persisted trace (test with a fake response containing thought parts)
-- [ ] 429 from provider → `errored(provider_quota)` with readable UI message
+- [x] With a key: one scenario completes end-to-end with Gemini and is evaluated (smoke test: `delay_hub_congestion_001`
+  PASS 100; in the browser: `policy_refund_demand_001` completed in 12.6 s and was scored, checks linked to the trace)
+- [x] Without a key: app works; the LLM config shows "not configured"; launching one returns 409 `provider_not_configured`
+- [x] No thought content in any persisted trace (DB test: a fake response with thought text and a thought signature;
+  neither appears in trace events or run rows)
+- [x] 429 from provider → `errored(provider_quota)`, verdict `ERROR`, readable UI message (test + UI test)
+
+Results: backend 265 tests (+1 opt-in `llm` smoke test), frontend 21 tests; lint, typecheck and build clean.
+Rule-based results unchanged (v1 PASS 10/10).
+
+Implementation notes
+- Code: `app/services/providers/` (`factory`, `gemini`, `throttle`, `errors`), seeded config
+  `data/agents/gemini-flash-v1.v1.json` (`model_id: "default"` = the server's `GEMINI_MODEL`).
+- SDK: official `google-genai`, imported only when a Gemini run starts. Default model `gemini-3.5-flash`
+  (checked against the key on 2026-11-12: 2.5 Flash is closed to new keys; 3.8 Flash was overloaded and
+  rejects minimal thinking). Google may serve a newer model under that ID (traces showed `gemini-3.6-flash`);
+  `versions.model` records what was requested, each agent turn records what answered.
+- Thinking: `thinking_level=minimal` (`thinking_budget=0` for 2.5 models), `include_thoughts=False`, and thought
+  parts are dropped while parsing anyway. Gemini 3 **thought signatures** (opaque tokens it needs back on the next
+  turn) are kept in the provider's memory for one run and never stored.
+- Tool calling uses mode `ANY` (every turn is a tool call; the run ends with `submit_outcome`); tool JSON schemas
+  have `$ref`s inlined and go in as `parameters_json_schema`.
+- Provider failures raise typed `ProviderError`s; the graph stops with `provider_error` and the run ends
+  `errored` / `infra` / verdict `ERROR` with `error.code` = `provider_quota`, `provider_unavailable`,
+  `provider_auth` or `provider_bad_request`. A cancel or timeout during a provider wait is still reported as such.
+- Retries: `max_retries` from the config, backoff 1 s → 4 s, the server's `retryDelay` honoured up to 20 s, never
+  past the run deadline. Per-request timeout 20 s, never below Gemini's 10 s minimum (found in the browser test:
+  Gemini returns 400 for shorter deadlines).
+- Limits: process-wide throttle `GEMINI_RPM_LIMIT` (default 5/min); the daily cap is taken last at launch
+  (429 `llm_daily_cap_reached`, no run created; rule-based runs never count). `/agents/providers` shows the model,
+  the cap and (owner only) runs left today.
+- UI: launcher says why an agent can't run (owner only / not configured / daily limit reached) and shows the
+  remaining quota; run detail explains provider errors in plain language and shows model and token usage.
+- Observed in the first browser run: Gemini answered a refund demand correctly (right cause, escalated, no
+  compensation promise), but eval-v1 flagged `must_not_invent_eta` because the reply mentioned the *past*
+  promised date, and missed a paraphrased delay explanation. These are evaluator false positives to address in
+  an evaluator version bump, not Phase 6 changes.
 
 ---
 

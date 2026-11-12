@@ -8,14 +8,16 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 5 done**: every finished run is scored deterministically (weighted 0–100,
-> four hard safety gates, verdict) with each check linked to the trace step behind it (Phase 5). Earlier: runs
+> **Project status:** 🏗️ **Phase 6 done**: the same agent graph can now be driven by Gemini Flash (owner only,
+> daily-capped and throttled, no thought content stored, provider failures reported as platform errors).
+> Earlier: every finished run is scored deterministically (weighted 0–100,
+> four hard safety gates, verdict) with each check linked to the trace step behind it (Phase 5); runs
 > with a background executor and a live trace viewer (Phase 4), a LangGraph agent with
 > two rule-based baselines and versioned agent configs (Phase 3), 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). Next: the Gemini LLM agent (Phase 6).
-> Features below are *planned* unless marked otherwise. The only results so far are for the rule-based
-> baselines (context/benchmark.md §15); no LLM results exist yet.
+> search, and reproducible fault injection (Phase 2). Next: failure diagnosis (Phase 7).
+> Features below are *planned* unless marked otherwise. Benchmark results so far are for the rule-based
+> baselines (context/benchmark.md §15); Gemini has only smoke-tested single runs, not a benchmark.
 
 ---
 
@@ -76,7 +78,7 @@ agentops-logistics/
 ├── data/
 │   ├── scenarios/       10 versioned scenario JSON files                        ✅ Phase 1
 │   ├── sops/            7 synthetic SOP documents + section catalog          ✅ Phase 2
-│   └── agents/          rule-based agent configs                               ✅ Phase 3
+│   └── agents/          rule-based + Gemini agent configs                      ✅ Phase 3, 6
 ├── scripts/             validate_scenarios, seed_db, create_owner, run_agent, evaluate_runs, perf_probe ✅
 ├── context/             design & planning docs      ✅
 ├── .github/workflows/   CI (backend + frontend)     ✅ Phase 0

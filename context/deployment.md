@@ -123,8 +123,10 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `DEMO_LOGIN_ENABLED` | no | `true` | passwordless viewer tokens |
 | `CORS_ORIGINS` | yes | `http://localhost:5173` | prod: `https://<app>.vercel.app` (comma-separated) |
 | `GEMINI_API_KEY` | no | — | **never commit**; absent ⇒ LLM agents "not configured" |
-| `GEMINI_MODEL` | no | a current Gemini Flash model ID | check AI Studio for the current ID |
-| `GEMINI_RPM_LIMIT` | no | set below current free-tier RPM | adapter throttle |
+| `GEMINI_MODEL` | no | `gemini-3.5-flash` | used by configs with `model_id: "default"`; check AI Studio for current IDs |
+| `GEMINI_THINKING_LEVEL` | no | `minimal` | Gemini 3+ only (`minimal`/`low`/…); 2.5 models get `thinking_budget=0` |
+| `GEMINI_RPM_LIMIT` | no | `5` | process-wide request throttle; keep below the free-tier per-minute limit |
+| `GEMINI_REQUEST_TIMEOUT_S` | no | `20` | per request, min 10 (Gemini's minimum); a hung request is retried |
 | `LLM_DAILY_RUN_CAP` | no | `50` | |
 | `MAX_CONCURRENT_RUNS` | no | `2` | thread-pool size; more runs wait in the queue |
 | `MAX_QUEUED_RUNS` | no | `20` | queued + running cap (429 beyond it) |
