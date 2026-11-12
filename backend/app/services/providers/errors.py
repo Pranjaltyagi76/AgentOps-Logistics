@@ -32,6 +32,12 @@ class ProviderQuotaError(ProviderError):
     retryable = True
 
 
+class ProviderDailyQuotaError(ProviderQuotaError):
+    """The provider's per-day quota is used up: retrying today cannot help."""
+
+    retryable = False
+
+
 class ProviderUnavailableError(ProviderError):
     """5xx, overload, network failure or request timeout."""
 

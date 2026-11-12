@@ -113,7 +113,7 @@ export function ComparePage() {
           <p className="text-sm text-muted-foreground">
             Regression rate:{' '}
             <span className="font-medium text-foreground">
-              {c.regression_rate === null ? 'unknown (no baseline passes)' : `${Math.round(c.regression_rate * 100)}%`}
+              {c.regression_rate === null ? 'unknown (no comparable baseline passes)' : `${Math.round(c.regression_rate * 100)}%`}
             </span>{' '}
             of the scenarios the baseline passed.
           </p>

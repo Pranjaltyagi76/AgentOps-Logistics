@@ -29,6 +29,7 @@ from app.services.agent_graph.schemas import ModelTurn, ToolCallRequest, Usage
 from app.services.providers.errors import (
     ProviderAuthError,
     ProviderBadRequestError,
+    ProviderDailyQuotaError,
     ProviderError,
     ProviderQuotaError,
     ProviderUnavailableError,
@@ -238,6 +239,8 @@ def parse_response(
 
 # --- errors ----------------------------------------------------------------------------------
 
+# Google names the exhausted metric, e.g. "requests per day" or "...PerDay...".
+_PER_DAY = re.compile(r"per ?day", re.I)
 _RETRY_DELAY = re.compile(r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+(?:\.\d+)?)s")
 
 
@@ -249,6 +252,8 @@ def classify_error(exc: BaseException) -> ProviderError | None:
         code = exc.code
         message = f"Gemini {code} {exc.status or ''}: {exc.message or ''}".strip()
         if code == 429:
+            if _PER_DAY.search(f"{exc.message} {exc.details}"):
+                return ProviderDailyQuotaError(message, status=code)
             return ProviderQuotaError(message, status=code)
         if code in (401, 403) or (code == 400 and "api key" in (exc.message or "").lower()):
             return ProviderAuthError(message, status=code)

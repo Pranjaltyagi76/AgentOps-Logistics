@@ -451,3 +451,17 @@ def test_throttle_waits_do_not_count_against_the_agent_time_limit(
     assert result.stop_reason == "completed"
     assert len(paused) == 2 and result.paused_ms >= 500
     assert result.paused_ms == round(gemini.throttle_wait_s * 1000)
+
+
+def test_a_daily_quota_is_not_retried() -> None:
+    clock = Clock()
+    message = (
+        "You exceeded your current quota. Quota exceeded for metric: "
+        "generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, "
+        "description: Generate content requests per day limit exceeded on Free Tier."
+    )
+    gemini = provider([api_error(429, "RESOURCE_EXHAUSTED", message)], clock)
+    with pytest.raises(ProviderQuotaError) as info:
+        gemini.generate([{"role": "user", "content": "x"}], [], temperature=1.0)
+    assert info.value.code == "provider_quota" and info.value.retryable is False
+    assert gemini.request_count == 1 and clock.sleeps == []
