@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     gemini_request_timeout_s: float = Field(default=20.0, ge=10, le=120)
     openai_api_key: SecretStr | None = None
 
+    # Optional LLM judge (Phase 7): advisory only, never part of the score; owner-triggered.
+    llm_judge_enabled: bool = False
+    llm_judge_model: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9.\-]{2,80}$")
+    llm_judge_daily_cap: int = Field(default=30, ge=0)
+
     @field_validator("gemini_api_key", "openai_api_key", mode="before")
     @classmethod
     def _empty_key_means_unset(cls, value: object) -> object:

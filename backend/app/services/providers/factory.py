@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.services.providers.gemini import GeminiProvider
 
 DEFAULT_MODEL = "default"
+JUDGE_REQUEST_TIMEOUT_S = 40.0
 
 _lock = threading.Lock()
 _clients: dict[str, Any] = {}
@@ -84,4 +85,33 @@ def build_provider(
         request_timeout_s=settings.gemini_request_timeout_s,
         sleep=sleep,
         should_stop=should_stop,
+    )
+
+
+def judge_model_id(settings: Settings) -> str:
+    return settings.llm_judge_model or settings.gemini_model
+
+
+def build_judge_provider(
+    settings: Settings,
+    *,
+    sleep: Callable[[float], None] = time.sleep,
+    client: Any = None,
+) -> "GeminiProvider":
+    """Gemini provider for the advisory LLM judge (one retry; shares the request throttle)."""
+    from app.services.providers.gemini import GeminiProvider
+
+    if settings.gemini_api_key is None:
+        raise ProviderNotConfiguredError(
+            "Gemini is not configured on this server (GEMINI_API_KEY is not set)"
+        )
+    return GeminiProvider(
+        client or _gemini_client(settings.gemini_api_key.get_secret_value()),
+        judge_model_id(settings),
+        throttle=gemini_throttle(settings.gemini_rpm_limit),
+        thinking_level=settings.gemini_thinking_level,
+        max_retries=1,
+        # Not bound by an agent run's deadline, so it can wait out a slow Gemini longer.
+        request_timeout_s=max(settings.gemini_request_timeout_s, JUDGE_REQUEST_TIMEOUT_S),
+        sleep=sleep,
     )

@@ -319,15 +319,11 @@ class GeminiProvider:
             http_options=types.HttpOptions(timeout=round(timeout_s * 1000)),
         )
 
-    def generate(
-        self,
-        messages: list[dict[str, Any]],
-        tools: list[dict[str, Any]],
-        *,
-        temperature: float,
-        deadline: float | None = None,
-    ) -> ModelTurn:
-        system, contents = to_contents(messages, self._model_turns, self._native_ids)
+    def _request(self, call: Callable[[float], Any], deadline: float | None) -> Any:
+        """Throttle, per-request timeout, retries with backoff and error mapping for one call.
+
+        `call(timeout_s)` performs the SDK request.
+        """
         attempts = self.max_retries + 1
         for attempt in range(attempts):
             self.throttle.acquire(
@@ -338,11 +334,7 @@ class GeminiProvider:
                 timeout_s = max(MIN_REQUEST_TIMEOUT_S, min(timeout_s, deadline - self._clock()))
             self.request_count += 1
             try:
-                response = self.client.models.generate_content(
-                    model=self.model_id,
-                    contents=contents,
-                    config=self._config(system, tools, temperature, timeout_s),
-                )
+                return call(timeout_s)
             except Exception as exc:
                 error = classify_error(exc)
                 if error is None:
@@ -371,11 +363,59 @@ class GeminiProvider:
                 self._sleep(delay)
                 if self._should_stop():
                     raise error from exc
-                continue
-            turn, replay, native = parse_response(
-                response, len(self._model_turns) + 1, self.model_id
-            )
-            self._model_turns.append(replay)
-            self._native_ids |= native
-            return turn
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def generate(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float,
+        deadline: float | None = None,
+    ) -> ModelTurn:
+        system, contents = to_contents(messages, self._model_turns, self._native_ids)
+        response = self._request(
+            lambda timeout_s: self.client.models.generate_content(
+                model=self.model_id,
+                contents=contents,
+                config=self._config(system, tools, temperature, timeout_s),
+            ),
+            deadline,
+        )
+        turn, replay, native = parse_response(response, len(self._model_turns) + 1, self.model_id)
+        self._model_turns.append(replay)
+        self._native_ids |= native
+        return turn
+
+    def generate_json(
+        self,
+        system: str,
+        prompt: str,
+        schema: dict[str, Any],
+        *,
+        temperature: float = 0.0,
+        deadline: float | None = None,
+    ) -> tuple[str, Usage | None, str]:
+        """One structured-output request (used by the LLM judge). No tools, no thoughts.
+
+        Returns (raw JSON text, usage, model that answered); the caller validates it.
+        """
+
+        def call(timeout_s: float) -> Any:
+            return self.client.models.generate_content(
+                model=self.model_id,
+                contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
+                config=types.GenerateContentConfig(
+                    system_instruction=system,
+                    response_mime_type="application/json",
+                    response_json_schema=schema,
+                    temperature=temperature,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    thinking_config=thinking_config(self.model_id, self.thinking_level),
+                    http_options=types.HttpOptions(timeout=round(timeout_s * 1000)),
+                ),
+            )
+
+        response = self._request(call, deadline)
+        turn, _, _ = parse_response(response, 0, self.model_id)  # drops thought parts
+        return turn.text or "", turn.usage, turn.model_id or self.model_id
