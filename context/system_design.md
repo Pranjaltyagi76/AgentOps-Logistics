@@ -105,12 +105,21 @@ Notes:
 - Trace events are written as they happen (not batched at the end), so a crashed run still has a partial trace.
 - Evaluation runs even for `errored`/`timed_out` runs when the error is agent-attributable (it yields `agent_crash`/`timeout` failures). Infrastructure errors (quota, DB) skip evaluation and are excluded from metrics.
 
-### 5.2 Suite run
-1. `POST /suites/{id}/runs` → `SuiteRun(queued)` + one `Run(queued)` per scenario (pinned versions).
-2. Executor drains runs respecting the global concurrency limit (default 2) and, for Gemini, a per-minute throttle.
-3. When all child runs are terminal, compute `summary_json` (metrics from [benchmark.md §9](benchmark.md)) and mark suite run `completed`.
+### 5.2 Suite run (built in Phase 8)
+1. `POST /suites/{id}/runs` resolves the suite (latest active version per key, or the pinned one) and checks,
+   all or nothing: the same access rules as a single run, room in the run queue for every child run, and for LLM
+   agents the whole daily allowance (`try_consume(amount=n)`). Then `SuiteRun(queued)` + one `Run(queued)` per
+   scenario × repeat, with the resolved versions frozen in `scenarios_json`.
+2. Rule-based runs use the default lane (`MAX_CONCURRENT_RUNS`, 2); LLM runs use their own lane
+   (`MAX_CONCURRENT_LLM_RUNS`, 1), so a Gemini suite paces itself through the RPM throttle and never starves
+   rule-based runs. Time spent waiting for the throttle is platform delay: it is excluded from the agent's time
+   limit, pushes the watchdog back, and is recorded as `runs.throttle_wait_ms`.
+3. The first child to start marks the suite run `running`. Whenever a child reaches a final state (worker,
+   watchdog, cancel, startup sweeper) the suite run is settled: once no child is active, `summary_json` is
+   computed from persisted data and the suite run becomes `completed` (or `cancelled`). Compare-and-set, so
+   concurrent finishers settle it once.
 
-### 5.3 Regression comparison
+### 5.3 Regression comparison (built in Phase 8, `domain/comparison.py`)
 `GET /comparisons?baseline_suite_run_id=A&candidate_suite_run_id=B` → pair runs by (`scenario_key`, `version`); classify each pair: `fixed`, `newly_failed`, `still_failing`, `still_passing`, `safety_regression` (candidate has a gate failure baseline did not), `not_comparable`; compute metric deltas. Pure function over persisted data — never reruns anything.
 
 ### 5.4 Scenario edit / versioning
@@ -155,7 +164,7 @@ create ──▶│ queued │────────────────�
 
 | Limit | Default | Where enforced |
 |---|---|---|
-| Max concurrent runs (global) | 2 | executor semaphore |
+| Max concurrent runs | 2 rule-based + 1 LLM | executor lanes (`MAX_CONCURRENT_RUNS`, `MAX_CONCURRENT_LLM_RUNS`) |
 | Max agent steps (graph iterations) | 8 | graph recursion limit + counter |
 | Max tool calls per run | 10 | tool gateway |
 | Max model retries (transient) | 2, exponential backoff 1 s → 4 s (server `retryDelay` honoured up to 20 s) | provider adapter |
@@ -165,7 +174,8 @@ create ──▶│ queued │────────────────�
 | Gemini request throttle | `GEMINI_RPM_LIMIT` (default 5/min) | process-wide sliding window in the provider adapter |
 | Request body | 1 MB | `BodySizeLimitMiddleware` (413) |
 | Run creation rate | 10/min per principal | run service (429) |
-| Queued + running runs | 20 | run service (429 `run_queue_full`) |
+| Queued + running runs | 60 | run service (429 `run_queue_full`); a suite needs room for all its runs |
+| Suite repeats | 1–3 | suite service (422) |
 | Watchdog | `timeout_s` + 15 s grace | executor timer marks the run `timed_out` |
 
 ## 9. Failure modes and handling
@@ -175,6 +185,7 @@ create ──▶│ queued │────────────────�
 | Gemini 429 / quota exhausted | HTTP 429 / `RESOURCE_EXHAUSTED` | backoff ×2, then stop | `errored(provider_quota)`, verdict `ERROR` (excluded, infra) |
 | Gemini 5xx / network / request timeout | status/exception | backoff ×2 | `errored(provider_unavailable)`, `ERROR` |
 | Gemini rejects the key or request | 401/403 or "API key" 400; other 4xx | no retry | `errored(provider_auth / provider_bad_request)`, `ERROR` |
+| Gemini daily quota used up | 429 naming a per-day metric | no retry (cannot help today) | `errored(provider_quota)`, `ERROR`; free tier: 20 requests/day for `gemini-3.5-flash` (2026-11-12) |
 | No key on the server | settings | refused at launch (409 `provider_not_configured`) | no run created |
 | Daily LLM cap used up | `usage_counters` | refused at launch (429 `llm_daily_cap_reached`) | no run created |
 | Malformed `submit_outcome` args | Pydantic validation | one repair prompt | then `errored(malformed_output)` → `FAIL` (agent) |

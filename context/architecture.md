@@ -76,7 +76,7 @@ backend/
 │   │   ├── tracing/             # TraceCollector, redaction
 │   │   ├── evaluation/          # Evaluator (uses domain/scoring), optional judge
 │   │   ├── diagnosis/           # store/read failure reports (rules live in domain/diagnosis_rules.py)
-│   │   ├── benchmarks/          # SuiteService, ComparisonService
+│   │   ├── benchmarks/          # service.py (suites, launch, cancel, comparison), settle.py (results, finalising)
 │   │   └── reports/             # ReportService, CSV/JSON writers
 │   └── prompts/                 # versioned prompt files: agent_system_v1.md, judge_v1.md
 ├── tests/  (unit/ integration/ golden/ — see §12)
@@ -322,9 +322,9 @@ Refines PROJECT.md §14. All PKs are UUID v4; all timestamps `timestamptz` UTC; 
 | `workspaces` | `name`, `owner_user_id` | — |
 | `scenarios` | `workspace_id?`, `scenario_key`, `version`, `title`, `category`, `difficulty`, `status` (`draft`/`active`/`archived`), `tags` (text[]), `scenario_json`, `is_locked` (used in a run), `updated_at` | unique(`scenario_key`,`version`); idx(`category`), idx(`status`), GIN(`tags`) |
 | `agent_configs` | `workspace_id?`, `name`, `version`, `provider`, `model_id`, `prompt_version`, `prompt`, `config_json` (temperature, tools, limits), `is_locked` | unique(`name`,`version`) |
-| `benchmark_suites` | `name`, `description`, `tag_filter?` | — |
-| `suite_memberships` | `suite_id`, `scenario_key`, `pinned_version?` | unique(`suite_id`,`scenario_key`) |
-| `suite_runs` | `suite_id`, `agent_config_id`, `status`, `started_at`, `finished_at`, `summary_json`, `is_demo` | idx(`suite_id`,`created_at`) |
+| `benchmark_suites` | `name` (slug), `title`, `description`, `tag_filter?`, `status` (active/archived), `is_demo` | unique(`name`) |
+| `suite_memberships` | `suite_id`, `scenario_key`, `pinned_version?`, `position` | unique(`suite_id`,`scenario_key`) |
+| `suite_runs` | `suite_id`, `agent_config_id`, denormalised `suite_name/agent_name/agent_version/provider`, `status` (queued/running/completed/cancelled), `repeats`, `total_runs`, `scenarios_json` (versions frozen at launch), `cancel_requested`, `started_at`, `finished_at`, `summary_json` (metrics, evaluator versions, flaky keys), `evaluator_version`, `triggered_by*` | idx(`suite_id`,`created_at`), idx(`status`); `runs.suite_run_id` FK (SET NULL), `runs.repeat_index`, `runs.throttle_wait_ms` |
 | `runs` | `scenario_id` (version row), `agent_config_id`, `suite_run_id?` (FK added in Phase 8), denormalised `scenario_key/version`, `agent_name/version`, `provider`; `status`, `stop_reason?`, `error_kind?` (`agent`/`infra`), `error_json?`, `cancel_requested`, `started_at`, `finished_at`, `latency_ms`, `steps`, `tool_call_count`, `usage_json?`, `final_outcome_json?`, `actions_json?`, `verdict?`, `score?`, `policy_failed`, `config_snapshot_json`, `versions_json`, `is_demo`, `triggered_by_role`, `triggered_by` | idx(`status`,`created_at`), idx(`created_at`), idx(`suite_run_id`), idx(`agent_config_id`), idx(`scenario_id`) |
 | `trace_events` | columns of §6 | unique(`run_id`,`seq`); idx(`run_id`) |
 | `evaluation_results` | `run_id`, `evaluator_version`, `score_breakdown_json`, `assertions_json`, `task_success`, `verdict`, `policy_violations_json`, `judge_json?` | unique(`run_id`,`evaluator_version`) |
@@ -347,6 +347,10 @@ Prefix `/api/v1`. Endpoint list in PROJECT.md §15, plus:
 | `GET /taxonomy` | categories, root-cause enums, failure types, tool names (for UI and editor validation) |
 | `GET /runs/{id}/failure-report` | diag-v1 report of the latest evaluation; `diagnosis`/`evidence` owner-only |
 | `POST /runs/{id}/judge` | owner: advisory LLM judge (409 off / no key, 429 cap or quota, 502 invalid output) |
+| `GET/POST /suites`, `GET/PUT /suites/{id}`, `POST /suites/{id}/archive` · `/restore` | suites (writes owner-only); a suite lists scenario keys or a tag |
+| `POST /suites/{id}/runs` `{agent_config_id, repeats ≤ 3}` | 202; all-or-nothing launch (queue room, whole LLM allowance) |
+| `GET /suite-runs`, `GET /suite-runs/{id}`, `POST /suite-runs/{id}/cancel` | progress, metrics, per-scenario results |
+| `GET /comparisons?baseline_suite_run_id&candidate_suite_run_id` | regression comparison, read-only |
 | `POST /scenarios/validate` | validate JSON without saving |
 | `POST /scenarios/{id}/archive`, `POST /scenarios/{id}/restore` | archive / restore every version (instead of DELETE) |
 | `GET /scenarios/export`, `GET /scenarios/{id}/export` | owner-only JSON export in schema key order |

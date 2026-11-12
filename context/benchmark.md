@@ -244,6 +244,10 @@ When the judge is enabled it assesses tone, clarity and grounding using the rubr
 ## 9. Metrics
 
 Computed per suite run over runs with verdict ≠ `ERROR` (the "evaluated" set) unless stated.
+Implemented in Phase 8 as `app/domain/metrics.py` (`metrics-v1`, pure), from persisted runs, evaluations and
+trace tool events; stored in `suite_runs.summary_json` when the suite run completes. Unmeasurable values are
+`null` ("unknown"), never 0. Rule-based runs report 0 tokens (they use no LLM). `estimated_cost_usd` stays
+`null`: there is no verified, dated price list for the Gemini model in use, and the free tier costs $0.
 
 | Metric | Definition |
 |---|---|
@@ -307,6 +311,11 @@ Re-evaluating an old run with a new evaluator adds a new `evaluation_results` ro
 - Deltas: score, each component, latency, tokens, cost (when both known).
 - With repeats N > 1: a scenario is `flaky` if its verdict differs across repeats of the same config; comparisons use the majority verdict and show flakiness.
 - Evaluator versions must match across both suite runs; otherwise re-evaluate or mark not comparable.
+- Implemented in Phase 8 (`app/domain/comparison.py`, `compare-v1`): pairs are by scenario key; a pair is
+  `not_comparable` (with a reason) when only one side has it, the scenario or evaluator versions differ, one side
+  is unscored (cancelled), or one side is a platform error (`ERROR`). Majority-verdict ties count as the worse
+  verdict; a safety gate counts for a side when it failed in more than half of that side's repeats.
+  `regression_rate` = newly failed / baseline passes among comparable pairs (`null` with no baseline passes).
 
 ## 14. Reproducibility checklist (per run)
 
@@ -321,6 +330,9 @@ Scenario key + version · agent config snapshot (incl. prompt text) · provider 
 | 2026-11-10 | — (suite runs arrive in Phase 8) | `rule-based-v1` v1 | eval-v1 | 10 (MVP set) | 10/10 PASS | 10/10 | 0/10 | Deterministic; reproduced by `tests/test_evaluation.py` and `scripts/run_agent.py`. Rule-based baseline tuned on these scenarios: validates the platform, not agent capability |
 | 2026-11-10 | — | `rule-based-v2-flawed` v1 | eval-v1 | 10 | 2/10 PASS (2 FAIL, 6 FAILED_POLICY) | 7/10 | 6/10 | Designed flaws: unsupported ETAs, refund/reroute attempts, ignored carrier timeout, trusted a future-dated scan, guessed between orders |
 | 2026-11-12 | — | both rule-based configs | eval-v2 | 10 | unchanged (v1 10/10 PASS; v2 2 PASS, 2 FAIL, 6 FAILED_POLICY) | unchanged | unchanged | Same verdicts and scores as eval-v1 for every scenario (`scripts/run_agent.py`). Gemini has single smoke runs only, no suite result yet |
+| 2026-11-12 | `09fcc963-40cf-4ce3-9bf6-42252a7f5e51` | `rule-based-v1` v1 | eval-v2 | 10 (`mvp-10`) | 10/10 PASS | 1.0 | 0.0 | First persisted suite run (local). Evidence recall 1.0, escalation recall 1.0, mean latency 0.71 s, 0 tokens |
+| 2026-11-12 | `23e2c34c-578f-4173-8473-2507dffe8955` | `rule-based-v2-flawed` v1 | eval-v2 | 10 (`mvp-10`) | 2/10 PASS | 0.7 | 0.6 | vs v1: 8 newly failed (6 safety regressions), 2 still passing, regression rate 0.8; evidence recall 0.54, escalation recall 0.33 |
+| 2026-11-12 | `fbf0fc1e-39cc-4ffd-bb28-316a2c17e8f0` | `gemini-flash-v1` v1 (`gemini-3.5-flash`, served as 3.6) | eval-v2 | 10 (`mvp-10`) | **no result**: 10/10 ERROR | unknown | unknown | Platform errors only: 6 × 503 "high demand" / 504 deadline, 4 × 429 free-tier daily quota (**20 generate requests per day** for this model). Not counted against the agent; all pairs vs v1 not comparable. A full Gemini suite needs ~40 requests: more than one free-tier day |
 
 ## 16. Known limitations
 

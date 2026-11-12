@@ -21,7 +21,7 @@
 | 5 | Deterministic evaluator | ✅ done (2026-11-10) | 5 |
 | 6 | Gemini LLM agent | ✅ done (2026-11-12) | 3 (second half) |
 | 7 | Failure diagnosis (+ optional judge) | ✅ done (2026-11-12) | 6 |
-| 8 | Benchmark suites and regression | ⬜ | 7 |
+| 8 | Benchmark suites and regression | ✅ done (2026-11-12) | 7 |
 | 9 | Dashboard and reports | ⬜ | 8 |
 | 10 | RAG and expanded scenarios (30+) | ⬜ | 9 |
 | 11 | Deployment | ⬜ | 10 |
@@ -342,9 +342,39 @@ Tasks
 - UI: suite list, suite run progress, comparison page (fixed / newly failed / safety regressions / deltas).
 
 Acceptance
-- [ ] Run the MVP suite with both rule-based configs and compare: classification matches golden expectation
-- [ ] Version mismatches flagged "not comparable"
-- [ ] Comparison is computed from persisted data only
+- [x] Run the MVP suite with both rule-based configs and compare: classification matches golden expectation
+  (v1 → v2: 8 newly failed, 2 still passing, 0 fixed, 6 safety regressions, regression rate 0.8; reversed: 8 fixed;
+  `tests/test_suites.py`, and the same numbers in the browser)
+- [x] Version mismatches flagged "not comparable" (scenario version and evaluator version, each with its reason;
+  also one-sided, unscored and platform-error pairs)
+- [x] Comparison is computed from persisted data only (pure `domain/comparison.py`; a test asserts that comparing
+  creates no runs or evaluations)
+- [x] Repeats detect flakiness (majority verdict, worst on ties; unit tests)
+- [ ] Real Gemini MVP suite result: **attempted, no result.** Suite run `fbf0fc1e` ended with all 10 runs `ERROR`
+  (6 × Gemini 503/504 overload, 4 × the free tier's **20 requests per day** limit for this model). The platform
+  behaved as designed (all marked platform errors, all 10 pairs "not comparable" against v1, no false regressions),
+  but a full Gemini suite needs ~40 requests, more than one free-tier day allows. See benchmark.md §15.
+
+Results: backend 354 tests (+2 opt-in `llm`), frontend 26 tests; lint, typecheck and build clean.
+
+Implementation notes
+- Code: `app/domain/metrics.py`, `app/domain/comparison.py` (pure), `app/services/benchmarks/` (`service.py`:
+  suites, launch, cancel, comparison; `settle.py`: results and finalising, kept separate so the worker can call it),
+  `app/api/v1/benchmarks.py`, migration 0008, `data/suites/mvp-10.json` (seeded); frontend `features/benchmarks/`
+  (suite list + launch, suite editor, live suite-run page, compare page).
+- `RunService.create` was split into reusable steps (`check_can_launch`, `check_queue_room`, `consume_llm_runs`,
+  `new_run`, `submit`) so a suite launch applies exactly the single-run rules, all or nothing.
+  `try_consume(amount=n)` takes a suite's whole LLM allowance atomically.
+- Executor lanes: rule-based runs use the default pool (`MAX_CONCURRENT_RUNS`, 2); LLM runs their own
+  (`MAX_CONCURRENT_LLM_RUNS`, 1). The watchdog is now a small thread that honours `token.extend()`.
+- Throttle waits are platform delay: the provider reports them (`on_pause`), the graph excludes them from the
+  agent's deadline, the watchdog is pushed back, and the run stores `throttle_wait_ms`. Seen in the real Gemini suite:
+  a run waited 30 s for the throttle and still had its full 90 s for the agent.
+- Suite runs settle whenever a child ends (worker, watchdog, cancel, startup sweeper); the sweeper also settles
+  suite runs left open by an earlier crash. `MAX_QUEUED_RUNS` default raised 20 → 60 (10 scenarios × 3 repeats).
+- A 429 whose metric is a per-day quota is not retried (`ProviderDailyQuotaError`): retrying cannot help today.
+- Suites are not versioned: a suite run freezes the scenario versions it resolved, so editing a suite never
+  changes past results or comparisons.
 
 ---
 

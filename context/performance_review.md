@@ -107,6 +107,7 @@ Actions:            <issues created / fixes made>
 |---|---|---|---|---|
 | 1 | 2026-11-10 | 4 | local (Windows, Postgres 16.2 portable, in-process client) | All measured API and run budgets met; see Review 1 |
 | 2 | 2026-11-12 | 6 | local + Gemini free tier (`gemini-3.5-flash`) | First Gemini runs: ~11 s, ~15k input tokens per run; one slow-provider episode; see Review 2 |
+| 3 | 2026-11-12 | 8 | local + Gemini free tier | Rule-based suites in 3–7 s; Gemini suite blocked by overload and a 20-requests-per-day free quota; see Review 3 |
 
 ### Review 1 — 2026-11-10 — after Phase 4
 Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
@@ -155,6 +156,28 @@ Actions:            request timeout lowered to 20 s so a hung request is retried
                     deadline; no retry unless a full 10 s request still fits before the run deadline; retries now
                     log a warning. Token budget: tentatively ≤ 25k input tokens per run until 10 runs are measured
                     in a Gemini suite (Phase 8).
+
+### Review 3 — 2026-11-12 — after Phase 8
+Git SHA:            7bf3677 + Phase 8 commits
+Environment:        local Windows dev machine, Postgres 16.2 (portable), uvicorn + threaded executor
+                    (2 rule-based workers + 1 LLM worker), Gemini free tier
+Dataset:            suite `mvp-10` (10 scenarios), 3 suite runs
+
+| Measurement | Target | Measured | N |
+|---|---|---|---|
+| Rule-based 10-scenario suite, wall clock | ≤ 30 s | 6.7 s (v1), 3.4 s (v2) | 1 each |
+| Rule-based run latency in a suite | — | mean 0.71 s (v1; the carrier-timeout scenario's two simulated 3 s timeouts dominate), 0.39 s (v2) | 10 |
+| Gemini 10-scenario suite | bounded by `GEMINI_RPM_LIMIT`; measure | 320 s until all 10 runs ended — every run a platform error | 1 |
+| Throttle wait per Gemini run | — | up to 37.6 s, excluded from the agent's time limit (runs kept their full 90 s) | 7 |
+
+Findings:           The Gemini **free tier allows 20 generate requests per day** for `gemini-3.5-flash` (served as
+                    `gemini-3.6-flash`; Google's 429 names the metric `generate_content_free_tier_requests, limit: 20`).
+                    Smoke tests, browser runs, judge calls and retries earlier in the day had used it, and the model
+                    was also overloaded (503 "high demand", 504 deadline). `LLM_DAILY_RUN_CAP=50` is far above what
+                    the free tier can serve (~4 requests per run ⇒ ~5 runs per day).
+Actions:            daily-quota 429s are no longer retried. Recommended: on the free tier set `LLM_DAILY_RUN_CAP`
+                    to about 4 and run Gemini suites of ≤ 4 scenarios per day, or use a model or tier with a higher
+                    daily limit. No Gemini suite metrics exist yet.
 
 ## 8. Known hotspots and optimisation playbook
 

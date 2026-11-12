@@ -8,15 +8,15 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 7 done**: every scored run gets an evidence-linked failure report (rule-based
-> `diag-v1`: failure type, likely stage, severity, cited checks and trace steps, debugging direction), plus an
-> optional, advisory Gemini judge for tone and clarity that never changes the score. Earlier: the same agent graph
-> driven by Gemini Flash (Phase 6); every finished run is scored deterministically (weighted 0–100,
+> **Project status:** 🏗️ **Phase 8 done**: benchmark suites run one agent across many scenarios (with repeats and
+> flaky detection), compute suite metrics from stored data, and compare two suite runs: fixed, newly failed, safety
+> regressions and metric deltas. Earlier: evidence-linked failure reports and an advisory LLM judge (Phase 7); the
+> same agent graph driven by Gemini Flash (Phase 6); every finished run is scored deterministically (weighted 0–100,
 > four hard safety gates, verdict) with each check linked to the trace step behind it (Phase 5); runs
 > with a background executor and a live trace viewer (Phase 4), a LangGraph agent with
 > two rule-based baselines and versioned agent configs (Phase 3), 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). Next: benchmark suites and regression comparison (Phase 8).
+> search, and reproducible fault injection (Phase 2). Next: dashboard and reports (Phase 9).
 > Features below are *planned* unless marked otherwise. Benchmark results so far are for the rule-based
 > baselines (context/benchmark.md §15); Gemini has only smoke-tested single runs, not a benchmark.
 
