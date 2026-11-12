@@ -49,8 +49,14 @@ class Run(UUIDPrimaryKey, CreatedAt, Base):
     agent_config_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("agent_configs.id", ondelete="RESTRICT"), nullable=False
     )
-    # Foreign key added with the suite_runs table in Phase 8.
-    suite_run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    suite_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("suite_runs.id", ondelete="SET NULL"), nullable=True
+    )
+    repeat_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Time spent waiting for the LLM request throttle: platform delay, not agent time (Phase 8).
+    throttle_wait_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Denormalised for listing; the rows above are immutable once a run uses them.
     scenario_key: Mapped[str] = mapped_column(String(80), nullable=False)

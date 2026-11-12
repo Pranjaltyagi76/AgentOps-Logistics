@@ -14,10 +14,11 @@ from app.api.deps import Principal
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.limits import SlidingWindowLimiter
-from app.db.models import AgentConfig, Run, Scenario, TraceEvent
+from app.db.models import AgentConfig, Run, Scenario, SuiteRun, TraceEvent
 from app.domain.policy import POLICY_VERSION
 from app.domain.taxonomy import TAXONOMY_VERSION
 from app.schemas.agent_config import AgentConfigSpec
+from app.services.benchmarks.settle import ACTIVE, settle_for_run, settle_suite_run
 from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import RunExecutor
@@ -60,16 +61,22 @@ def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
         raise AppError("Invalid cursor", code="invalid_cursor") from exc
 
 
-def try_consume(db: Session, key: str, limit: int, day: date | None = None) -> bool:
-    """Atomically increments today's counter unless it already reached `limit`."""
+def try_consume(
+    db: Session, key: str, limit: int, day: date | None = None, *, amount: int = 1
+) -> bool:
+    """Atomically adds `amount` to today's counter unless that would pass `limit`.
+
+    All or nothing: a suite that needs 10 LLM runs gets all 10 or none. The caller rolls back
+    on False (the insert path may have written a row that does not fit).
+    """
     day = day or datetime.now(UTC).date()
     row = db.execute(
         text(
-            "INSERT INTO usage_counters (id, day, key, count) VALUES (:id, :day, :key, 1) "
-            "ON CONFLICT (day, key) DO UPDATE SET count = usage_counters.count + 1 "
-            "WHERE usage_counters.count < :limit RETURNING count"
+            "INSERT INTO usage_counters (id, day, key, count) VALUES (:id, :day, :key, :amount) "
+            "ON CONFLICT (day, key) DO UPDATE SET count = usage_counters.count + :amount "
+            "WHERE usage_counters.count + :amount <= :limit RETURNING count"
         ),
-        {"id": uuid.uuid4(), "day": day, "key": key, "limit": limit},
+        {"id": uuid.uuid4(), "day": day, "key": key, "limit": limit, "amount": amount},
     ).first()
     return row is not None and (row[0] <= limit)
 
@@ -112,6 +119,11 @@ def sweep_orphaned_runs(session_factory: SessionFactory) -> int:
             "run_error", error=error
         )
         evaluate_run_safely(session_factory, run.id)  # verdict ERROR: excluded from metrics
+    # Suite runs whose runs are now all final (also any left over by an earlier crash).
+    with session_factory() as db:
+        open_suites = list(db.scalars(select(SuiteRun.id).where(SuiteRun.status.in_(ACTIVE))))
+    for suite_run_id in open_suites:
+        settle_suite_run(session_factory, suite_run_id)
     return len(orphans)
 
 
@@ -138,58 +150,98 @@ class RunService:
             raise AppError("Scenario not found", code="scenario_not_found", status_code=404)
         if scenario.status == "archived":
             raise RunConflictError("This scenario is archived", code="scenario_archived")
+        agent, config = self.load_agent(agent_id)
+        self.check_can_launch(config, principal)
+        if not self.limiter.allow(f"runs:{principal.subject}"):
+            raise AppError(
+                "Too many runs started; wait a minute", code="rate_limited", status_code=429
+            )
+        self.check_queue_room(1)
+        # Counted last, so a launch rejected for another reason never uses up the daily cap.
+        self.consume_llm_runs(config, 1)
+        run = self.new_run(scenario, agent, config, principal)
+        self.db.commit()
+        self.submit(run, config)
+        self.db.refresh(run)
+        return run
+
+    # Building blocks, shared with suite launches (services/benchmarks).
+
+    def load_agent(self, agent_id: uuid.UUID) -> tuple[AgentConfig, AgentConfigSpec]:
         agent = self.db.get(AgentConfig, agent_id)
         if agent is None:
             raise AppError("Agent config not found", code="agent_not_found", status_code=404)
         if agent.status == "archived":
             raise RunConflictError("This agent config is archived", code="agent_archived")
-        config = AgentConfigSpec.model_validate(agent.config_json)
+        return agent, AgentConfigSpec.model_validate(agent.config_json)
 
-        if config.is_llm:
-            if not principal.is_owner:
-                raise AppError(
-                    "The demo viewer can only run rule-based agents",
-                    code="forbidden",
-                    status_code=403,
-                )
-            problem = provider_problem(config, self.settings)
-            if problem is not None:
-                code = (
-                    "provider_not_configured"
-                    if config.provider == "gemini"
-                    else "provider_not_available"
-                )
-                raise RunConflictError(problem, code=code)
-        if not self.limiter.allow(f"runs:{principal.subject}"):
+    def check_can_launch(self, config: AgentConfigSpec, principal: Principal) -> None:
+        if not config.is_llm:
+            return
+        if not principal.is_owner:
             raise AppError(
-                "Too many runs started; wait a minute", code="rate_limited", status_code=429
+                "The demo viewer can only run rule-based agents",
+                code="forbidden",
+                status_code=403,
             )
+        problem = provider_problem(config, self.settings)
+        if problem is not None:
+            code = (
+                "provider_not_configured"
+                if config.provider == "gemini"
+                else "provider_not_available"
+            )
+            raise RunConflictError(problem, code=code)
+
+    def check_queue_room(self, needed: int) -> None:
         active = self.db.scalar(
             select(func.count()).select_from(Run).where(Run.status.in_(("queued", "running")))
         )
-        if (active or 0) >= self.settings.max_queued_runs:
+        if (active or 0) + needed > self.settings.max_queued_runs:
             raise AppError(
-                "The run queue is full; try again shortly", code="run_queue_full", status_code=429
+                "The run queue is full; try again shortly"
+                if needed == 1
+                else f"Not enough room in the run queue for {needed} runs "
+                f"(limit {self.settings.max_queued_runs} queued or running); try again shortly",
+                code="run_queue_full",
+                status_code=429,
             )
 
-        # Counted last, so a launch rejected for another reason never uses up the daily cap.
-        if config.is_llm and not try_consume(
-            self.db, LLM_RUNS_KEY, self.settings.llm_daily_run_cap
-        ):
+    def consume_llm_runs(self, config: AgentConfigSpec, count: int) -> None:
+        if not config.is_llm:
+            return
+        if not try_consume(self.db, LLM_RUNS_KEY, self.settings.llm_daily_run_cap, amount=count):
             self.db.rollback()
+            left = max(0, self.settings.llm_daily_run_cap - usage_today(self.db, LLM_RUNS_KEY))
             raise AppError(
                 f"The daily limit of {self.settings.llm_daily_run_cap} LLM runs is used up; "
-                "it resets at 00:00 UTC",
+                "it resets at 00:00 UTC"
+                if count == 1
+                else f"This needs {count} LLM runs but only {left} of today's "
+                f"{self.settings.llm_daily_run_cap} are left; it resets at 00:00 UTC",
                 code="llm_daily_cap_reached",
                 status_code=429,
             )
 
+    def new_run(
+        self,
+        scenario: Scenario,
+        agent: AgentConfig,
+        config: AgentConfigSpec,
+        principal: Principal,
+        *,
+        suite_run_id: uuid.UUID | None = None,
+        repeat_index: int = 0,
+    ) -> Run:
+        """Adds a queued run (not committed, not submitted)."""
         # The exact versions used are frozen from now on (edits create new versions).
         scenario.is_locked = True
         agent.is_locked = True
         run = Run(
             scenario_id=scenario.id,
             agent_config_id=agent.id,
+            suite_run_id=suite_run_id,
+            repeat_index=repeat_index,
             scenario_key=scenario.scenario_key,
             scenario_version=scenario.version,
             agent_name=agent.name,
@@ -203,21 +255,22 @@ class RunService:
                 "taxonomy": TAXONOMY_VERSION,
                 "prompt": config.prompt_version,
                 "model": resolve_model_id(config, self.settings),
-                "evaluator": None,  # set in Phase 5
+                "evaluator": None,  # set when the run is scored
             },
             triggered_by_role=principal.role,
             triggered_by=principal.subject,
         )
         self.db.add(run)
-        self.db.commit()
+        return run
+
+    def submit(self, run: Run, config: AgentConfigSpec) -> None:
         self.executor.submit(
             run.id,
             partial(self._job, run.id),
             timeout_s=float(config.timeout_s),
             on_overrun=partial(mark_overrun, run.id, self.session_factory),
+            lane="llm" if config.is_llm else "default",
         )
-        self.db.refresh(run)
-        return run
 
     def _job(self, run_id: uuid.UUID, token) -> None:  # type: ignore[no-untyped-def]
         execute_run(run_id, token, self.session_factory, self.settings)
@@ -291,5 +344,6 @@ class RunService:
             TraceCollector(run_id, self.session_factory, start_seq=last).emit(
                 "run_finished", output={"status": "cancelled", "stop_reason": "cancelled"}
             )
+            settle_for_run(self.session_factory, run_id)
         self.db.refresh(run)
         return run

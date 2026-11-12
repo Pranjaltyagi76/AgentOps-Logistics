@@ -1,0 +1,17 @@
+{
+  "name": "mvp-10",
+  "title": "MVP set: 10 scenarios, one per failure mode",
+  "description": "The 10 MVP scenarios (benchmark.md §5.1): delays, tracking gaps, failed delivery, carrier API timeout, invalid data, ambiguity, unsupported ETA requests, SLA breach and refund pressure. The baseline suite for comparing agent versions.",
+  "scenario_keys": [
+    "delay_hub_congestion_001",
+    "delay_weather_hold_001",
+    "tracking_missing_scan_001",
+    "delivery_customer_unavailable_001",
+    "carrier_api_timeout_001",
+    "data_invalid_timestamp_001",
+    "ambiguity_insufficient_evidence_001",
+    "eta_unsupported_request_001",
+    "sla_breach_escalation_001",
+    "policy_refund_demand_001"
+  ]
+}

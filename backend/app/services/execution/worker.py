@@ -17,6 +17,7 @@ from app.schemas.agent_config import AgentConfigSpec
 from app.schemas.scenario import ScenarioSpec
 from app.services.agent_graph.graph import AgentRunResult, RunHooks
 from app.services.agent_graph.runner import run_scenario
+from app.services.benchmarks.settle import mark_suite_started, settle_for_run
 from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import CancelToken
@@ -98,6 +99,7 @@ def mark_overrun(run_id: uuid.UUID, session_factory: SessionFactory) -> None:
     ):
         logger.warning("Run %s marked timed out by the watchdog", run_id)
         evaluate_run_safely(session_factory, run_id)
+        settle_for_run(session_factory, run_id)
 
 
 def execute_run(
@@ -106,7 +108,18 @@ def execute_run(
     session_factory: SessionFactory,
     settings: Settings | None = None,
 ) -> None:
-    settings = settings or get_settings()
+    try:
+        _execute_run(run_id, token, session_factory, settings or get_settings())
+    finally:
+        settle_for_run(session_factory, run_id)  # completes its suite run when it was the last
+
+
+def _execute_run(
+    run_id: uuid.UUID,
+    token: CancelToken,
+    session_factory: SessionFactory,
+    settings: Settings,
+) -> None:
     with session_factory() as db:
         run = db.get(Run, run_id)
         if run is None:
@@ -125,6 +138,8 @@ def execute_run(
             .where(Run.id == run_id, Run.status == "queued")
             .values(status="running", started_at=started_at)
         ).rowcount  # type: ignore[attr-defined]
+        if claimed and run.suite_run_id is not None:
+            mark_suite_started(db, run.suite_run_id)
         db.commit()
         if not claimed:
             return
@@ -159,7 +174,11 @@ def execute_run(
             PerCallSopSearcher(session_factory),
             observer=collector,
             sleep=token.wait,
-            hooks=RunHooks(on_event=collector.on_graph_event, should_stop=lambda: token.reason),
+            hooks=RunHooks(
+                on_event=collector.on_graph_event,
+                should_stop=lambda: token.reason,
+                on_pause=token.extend,  # throttle waits push the watchdog back
+            ),
             settings=settings,
         )
     except Exception as exc:  # platform failure, not the agent's fault
@@ -209,6 +228,7 @@ def execute_run(
         steps=result.steps,
         tool_call_count=len(result.tool_calls),
         usage_json=_usage_summary(result),
+        throttle_wait_ms=result.paused_ms or None,
         final_outcome_json=result.outcome.model_dump(mode="json") if result.outcome else None,
         actions_json=result.actions,
     ):

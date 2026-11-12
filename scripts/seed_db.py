@@ -1,4 +1,5 @@
-"""Load SOP documents (data/sops), scenarios (data/scenarios) and agent configs (data/agents).
+"""Load SOP documents (data/sops), scenarios (data/scenarios), agent configs (data/agents) and
+benchmark suites (data/suites).
 
 Usage (from backend/, after `uv run alembic upgrade head`):
     uv run python ../scripts/seed_db.py
@@ -16,6 +17,7 @@ from app.db.session import get_sessionmaker
 from app.domain.sop_catalog import get_catalog
 from app.domain.sop_corpus import check_against_catalog, load_corpus
 from app.services.agents.service import AgentConfigService
+from app.services.benchmarks.service import SuiteService
 from app.services.scenarios.service import ScenarioService
 from app.services.sops.service import sync_corpus
 
@@ -36,10 +38,13 @@ def main() -> int:
     items = [json.loads(path.read_text(encoding="utf-8")) for path in paths]
     agent_paths = sorted((settings.data_dir / "agents").glob("*.json"))
     agent_items = [json.loads(path.read_text(encoding="utf-8")) for path in agent_paths]
+    suite_paths = sorted((settings.data_dir / "suites").glob("*.json"))
+    suite_items = [json.loads(path.read_text(encoding="utf-8")) for path in suite_paths]
     with get_sessionmaker()() as db:
         sop_results = sync_corpus(db, corpus)
         results = ScenarioService(db, catalog).import_many(items)
         agent_results = AgentConfigService(db).import_many(agent_items)
+        suite_results = SuiteService(db, None).import_many(suite_items)  # type: ignore[arg-type]
 
     for slug, version, outcome in sop_results:
         print(f"{outcome:<10} sop {slug} v{version}")
@@ -51,11 +56,14 @@ def main() -> int:
         print(f"{agent.outcome:<10} agent {path.name}")
         for error in agent.errors or []:
             print(f"           - {error['loc']}: {error['msg']}")
+    for name, outcome in suite_results:
+        print(f"{outcome:<10} suite {name}")
     failed = sum(1 for r in results if r.outcome == "error")
     failed += sum(1 for r in agent_results if r.outcome == "error")
     print(
         f"\n{len(sop_results)} SOP documents, {len(results)} scenarios, "
-        f"{len(agent_results)} agent configs processed; {failed} failed"
+        f"{len(agent_results)} agent configs, {len(suite_results)} suites processed; "
+        f"{failed} failed"
     )
     return 1 if failed else 0
 
