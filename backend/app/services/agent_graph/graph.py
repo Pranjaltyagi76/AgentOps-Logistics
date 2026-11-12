@@ -25,6 +25,7 @@ from pydantic import ValidationError
 
 from app.services.agent_graph.deciders import AgentState, Decider, Observation
 from app.services.agent_graph.schemas import SUBMIT_OUTCOME, AgentInput, AgentOutcome, ModelTurn
+from app.services.providers.errors import ProviderError
 from app.services.tools.gateway import ToolCallRecord, ToolGateway
 
 MAX_REPAIR_ATTEMPTS = 1
@@ -122,6 +123,12 @@ def build_agent_graph(
         started = time.monotonic()
         try:
             turn = decider.decide(state)
+        except ProviderError as exc:  # quota / outage / auth: the platform failed, not the agent
+            external = hooks.should_stop()
+            if external is not None:  # cancelled or timed out while waiting on the provider
+                return stop(external)
+            error = {"stage": "decide", "type": type(exc).__name__, **exc.to_dict()}
+            return {"stop_reason": "provider_error", "errors": [*state["errors"], error]}
         except Exception as exc:  # the agent under test failing is a result, not a crash
             error = {"stage": "decide", "type": type(exc).__name__, "message": str(exc)[:500]}
             return {"stop_reason": "agent_error", "errors": [*state["errors"], error]}
@@ -300,6 +307,7 @@ def run_agent(
         "repair_attempts": 0,
         "stop_reason": None,
         "errors": [],
+        "deadline": started + limits.timeout_s,
     }
     # A step visits at most decide -> act -> finalize; the margin covers repairs and nudges.
     final = graph.invoke(initial, config={"recursion_limit": limits.max_steps * 4 + 10})

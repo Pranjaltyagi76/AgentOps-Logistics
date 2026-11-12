@@ -70,7 +70,7 @@ def test_tool_calls_then_valid_outcome_completes(make_scenario: Factory) -> None
     assert result.outcome is not None and result.outcome.root_cause == "hub_congestion"
     assert result.steps == 2
     assert [c.tool for c in result.tool_calls] == ["get_tracking_events"]
-    assert result.usage == [{"input_tokens": 120, "output_tokens": 15}]
+    assert result.usage == [{"input_tokens": 120, "output_tokens": 15, "thinking_tokens": None}]
     roles = [m["role"] for m in result.messages]
     assert roles == ["system", "user", "assistant", "tool", "assistant"]
 

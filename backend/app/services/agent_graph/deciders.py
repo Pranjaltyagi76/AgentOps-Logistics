@@ -1,6 +1,7 @@
 """Deciders choose the agent's next move in the graph's `decide` node.
 
-- `LLMDecider` asks a `ModelProvider` (Gemini in Phase 6; `FakeProvider` in tests).
+- `LLMDecider` asks a `ModelProvider` (`GeminiProvider` in app/services/providers;
+  `FakeProvider` in tests).
 - `RuleBasedDecider` (rule_based.py) uses deterministic heuristics, no LLM.
 
 Both see the same `AgentState`: the agent input, the visible message history and the tool
@@ -35,6 +36,7 @@ class AgentState(TypedDict):
     repair_attempts: int
     stop_reason: str | None
     errors: list[dict[str, Any]]
+    deadline: float | None  # time.monotonic() value; LLM requests must finish before it
 
 
 class Decider(Protocol):
@@ -47,7 +49,12 @@ class ModelProvider(Protocol):
     name: str
 
     def generate(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, temperature: float
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float,
+        deadline: float | None = None,
     ) -> ModelTurn: ...
 
 
@@ -61,7 +68,10 @@ class LLMDecider:
 
     def decide(self, state: AgentState) -> ModelTurn:
         return self.provider.generate(
-            state["messages"], state["input"]["tools"], temperature=self.temperature
+            state["messages"],
+            state["input"]["tools"],
+            temperature=self.temperature,
+            deadline=state.get("deadline"),
         )
 
 
@@ -75,7 +85,12 @@ class FakeProvider:
         self.calls = 0
 
     def generate(
-        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]], *, temperature: float
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        *,
+        temperature: float,
+        deadline: float | None = None,
     ) -> ModelTurn:
         turn = self.turns[min(self.calls, len(self.turns) - 1)]
         self.calls += 1

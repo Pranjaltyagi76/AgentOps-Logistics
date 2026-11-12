@@ -54,6 +54,7 @@ class ToolCallRequest(BaseModel):
 class Usage(BaseModel):
     input_tokens: int | None = None
     output_tokens: int | None = None
+    thinking_tokens: int | None = None  # a count reported by the provider; never thought text
 
 
 class ModelTurn(BaseModel):
@@ -72,4 +73,5 @@ StopReason = Literal[
     "malformed_output",  # outcome still invalid after the repair attempt
     "agent_error",  # the decider raised
     "cancelled",  # stopped by the run executor (user cancel)
+    "provider_error",  # the LLM provider failed (quota, outage, auth): a platform error
 ]
