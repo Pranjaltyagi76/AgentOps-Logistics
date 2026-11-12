@@ -112,6 +112,17 @@ function Body({ event }: { event: TraceEvent }) {
               </li>
             ))}
           </ul>
+          {output.model_id || event.usage ? (
+            <p className="text-xs text-muted-foreground">
+              {output.model_id ? <span className="font-mono">{String(output.model_id)}</span> : null}
+              {event.usage ? (
+                <>
+                  {output.model_id ? ' · ' : ''}
+                  {String(event.usage.input_tokens ?? '?')} in / {String(event.usage.output_tokens ?? '?')} out tokens
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </>
       )
     }

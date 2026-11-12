@@ -181,6 +181,51 @@ describe('run pages', () => {
     expect(screen.getByText(/Expected values are hidden for demo viewers/)).toBeInTheDocument()
   })
 
+  it('explains a Gemini quota error and shows the model and token usage', async () => {
+    signIn('owner')
+    mockGet({
+      ...base,
+      agent_name: 'gemini-flash-v1',
+      provider: 'gemini',
+      status: 'errored',
+      stop_reason: 'provider_error',
+      error_kind: 'infra',
+      error: { code: 'provider_quota', message: 'Gemini 429 RESOURCE_EXHAUSTED: Quota exceeded', status: 429 },
+      outcome: null,
+      usage: { model_calls: 2, input_tokens: 5200, output_tokens: 90, thinking_tokens: null },
+      versions: { ...base.versions, model: 'gemini-3.5-flash' },
+    }, true)
+    renderRoutes(routes, '/runs/run-1')
+
+    expect(await screen.findByText(/Gemini quota reached/)).toBeInTheDocument()
+    expect(screen.getByText('Platform error (not counted against the agent)')).toBeInTheDocument()
+    expect(screen.getByText(/provider_quota/)).toBeInTheDocument()
+    expect(screen.getByText('gemini-3.5-flash')).toBeInTheDocument()
+    expect(screen.getByText('2 model calls · 5,200 in · 90 out')).toBeInTheDocument()
+  })
+
+  it('shows the remaining daily LLM runs when the owner picks a Gemini agent', async () => {
+    signIn('owner')
+    vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+      if (url === '/agents') return { data: [{ id: 'ag-2', name: 'gemini-flash-v1', version: 1, provider: 'gemini' }] }
+      if (url === '/agents/providers') {
+        return {
+          data: [
+            { provider: 'rule_based', label: 'Rule-based', configured: true, available: true, note: '' },
+            { provider: 'gemini', label: 'Google Gemini', configured: true, available: true, note: '', model: 'gemini-3.5-flash', daily_cap: 50, runs_left_today: 47 },
+          ],
+        }
+      }
+      if (url === '/scenarios') return { data: { items: [{ id: 'sc-1', scenario_key: 'delay_hub_congestion_001', version: 1, title: 'Hub' }], next_cursor: null, total: 1 } }
+      throw new Error(`unexpected GET ${url}`)
+    })
+    renderRoutes(routes, '/runs/new?scenario=sc-1&agent=ag-2')
+
+    const hint = await screen.findByTestId('llm-quota')
+    expect(hint).toHaveTextContent('Uses the free Google Gemini quota (gemini-3.5-flash): 47 of 50 LLM runs left today.')
+    expect(screen.getByRole('button', { name: /launch run/i })).toBeEnabled()
+  })
+
   it('shows expected values to the owner', async () => {
     signIn('owner')
     mockGet(base, true)

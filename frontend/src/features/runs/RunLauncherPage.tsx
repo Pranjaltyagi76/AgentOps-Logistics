@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAgents, useProviders } from '@/features/agents/api'
+import type { ProviderStatus } from '@/features/agents/types'
 import { useScenarioList } from '@/features/scenarios/api'
 import { toApiError } from '@/lib/api'
 
@@ -27,7 +28,19 @@ export function RunLauncherPage() {
   const [agentId, setAgentId] = useState(params.get('agent') ?? '')
   const [error, setError] = useState<string | null>(null)
 
-  const runnable = new Set(providers.data?.filter((p) => p.available).map((p) => p.provider) ?? ['rule_based'])
+  const status = new Map<string, ProviderStatus>((providers.data ?? []).map((p) => [p.provider, p]))
+  /** Why an agent can't be launched by this user right now, or null if it can. */
+  function blockedReason(provider: string): string | null {
+    if (provider === 'rule_based') return null
+    const p = status.get(provider)
+    if (!isOwner) return 'owner only'
+    if (!p?.configured) return 'not configured'
+    if (!p.available) return 'not available yet'
+    if (p.runs_left_today === 0) return 'daily limit reached'
+    return null
+  }
+  const selectedAgent = agents.data?.find((a) => a.id === agentId)
+  const selectedLlm = selectedAgent && selectedAgent.provider !== 'rule_based' ? status.get(selectedAgent.provider) : undefined
   const scenarioRows = scenarios.data?.pages.flatMap((p) => p.items) ?? []
 
   async function onSubmit(event: FormEvent) {
@@ -61,11 +74,11 @@ export function RunLauncherPage() {
               <SelectTrigger id="agent"><SelectValue placeholder="Choose an agent" /></SelectTrigger>
               <SelectContent>
                 {(agents.data ?? []).map((agent) => {
-                  const available = runnable.has(agent.provider)
+                  const blocked = blockedReason(agent.provider)
                   return (
-                    <SelectItem key={agent.id} value={agent.id} disabled={!available}>
+                    <SelectItem key={agent.id} value={agent.id} disabled={blocked !== null}>
                       {agent.name} v{agent.version}
-                      {available ? '' : ' (not runnable yet)'}
+                      {blocked ? ` (${blocked})` : ''}
                     </SelectItem>
                   )
                 })}
@@ -89,6 +102,12 @@ export function RunLauncherPage() {
             Limits come from the agent config (max steps, tool calls and time). At most a few runs execute at once; others wait in the queue.
             {isOwner ? '' : ' Demo viewers can run the rule-based agents.'}
           </p>
+          {selectedLlm ? (
+            <p className="text-xs text-muted-foreground" data-testid="llm-quota">
+              Uses the free {selectedLlm.label} quota{selectedLlm.model ? ` (${selectedLlm.model})` : ''}:{' '}
+              {selectedLlm.runs_left_today ?? '?'} of {selectedLlm.daily_cap ?? '?'} LLM runs left today.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

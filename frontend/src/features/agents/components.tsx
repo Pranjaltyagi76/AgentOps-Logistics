@@ -34,7 +34,7 @@ export function ProviderStatusCards({ providers }: { providers: ProviderStatus[]
                 </Badge>
               ) : (
                 <Badge variant="outline">
-                  <CircleDashed aria-hidden /> Not yet
+                  <CircleDashed aria-hidden /> {p.configured ? 'Not yet' : 'Not configured'}
                 </Badge>
               )}
             </CardTitle>
@@ -43,6 +43,11 @@ export function ProviderStatusCards({ providers }: { providers: ProviderStatus[]
             {p.provider !== 'rule_based' ? (
               <span className="flex items-center gap-1">
                 <KeyRound className="size-3" aria-hidden /> API key {p.configured ? 'configured' : 'not configured'}
+              </span>
+            ) : null}
+            {p.available && p.runs_left_today != null && p.daily_cap != null ? (
+              <span>
+                {p.runs_left_today} of {p.daily_cap} LLM runs left today (resets 00:00 UTC)
               </span>
             ) : null}
             <span>{p.note}</span>

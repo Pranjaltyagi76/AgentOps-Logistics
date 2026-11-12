@@ -26,7 +26,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** Plain-language explanations for provider failures (the raw code stays visible below). */
+const PROVIDER_ERRORS: Record<string, string> = {
+  provider_quota: 'Gemini quota reached (free-tier requests per minute or per day). Try again later.',
+  provider_unavailable: 'Gemini was unavailable or too slow to answer (overloaded, network or timeout). Try again shortly.',
+  provider_auth: 'Gemini rejected the server’s API key. The owner needs to check GEMINI_API_KEY.',
+  provider_bad_request: 'Gemini rejected the request (for example an unknown model ID or unsupported setting).',
+  provider_not_configured: 'Gemini is not configured on this server.',
+}
+
+function tokens(usage: Record<string, unknown> | null): string | null {
+  if (!usage) return null
+  const parts = [`${String(usage.model_calls ?? '?')} model calls`]
+  if (typeof usage.input_tokens === 'number') parts.push(`${usage.input_tokens.toLocaleString()} in`)
+  if (typeof usage.output_tokens === 'number') parts.push(`${usage.output_tokens.toLocaleString()} out`)
+  if (typeof usage.thinking_tokens === 'number') parts.push(`${usage.thinking_tokens.toLocaleString()} thinking`)
+  return parts.join(' · ')
+}
+
 function Summary({ run }: { run: RunDetail }) {
+  const usage = tokens(run.usage)
   return (
     <Card>
       <CardHeader><CardTitle className="text-base">Run</CardTitle></CardHeader>
@@ -45,6 +64,8 @@ function Summary({ run }: { run: RunDetail }) {
           <Field label="Stop reason">{run.stop_reason ? humanize(run.stop_reason) : '—'}</Field>
           <Field label="Steps">{run.steps ?? '—'} / {run.limits.max_steps}</Field>
           <Field label="Tool calls">{run.tool_call_count ?? '—'} / {run.limits.max_tool_calls}</Field>
+          {run.versions.model ? <Field label="Model"><span className="font-mono text-xs">{String(run.versions.model)}</span></Field> : null}
+          {usage ? <Field label="Tokens">{usage}</Field> : null}
           <Field label="Latency">{run.latency_ms !== null ? `${(run.latency_ms / 1000).toFixed(2)} s` : '—'} (limit {run.limits.timeout_s} s)</Field>
           <Field label="Started">{formatDateTime(run.started_at)}</Field>
           <Field label="Finished">{formatDateTime(run.finished_at)}</Field>
@@ -176,8 +197,11 @@ export function RunDetailPage() {
           <AlertTitle>
             {r.error_kind === 'infra' ? 'Platform error (not counted against the agent)' : 'The agent did not finish cleanly'}
           </AlertTitle>
-          <AlertDescription className="font-mono text-xs">
-            {String(r.error.code ?? '')} {r.error.message ? `· ${String(r.error.message)}` : ''}
+          <AlertDescription className="flex flex-col gap-1">
+            {PROVIDER_ERRORS[String(r.error.code)] ? <span>{PROVIDER_ERRORS[String(r.error.code)]}</span> : null}
+            <span className="font-mono text-xs">
+              {String(r.error.code ?? '')} {r.error.message ? `· ${String(r.error.message)}` : ''}
+            </span>
           </AlertDescription>
         </Alert>
       ) : null}

@@ -49,6 +49,11 @@ export interface ProviderStatus {
   configured: boolean
   available: boolean
   note: string
+  /** Model used by configs whose model_id is "default" (LLM providers only). */
+  model?: string | null
+  daily_cap?: number | null
+  /** Owner only; null for viewers, who cannot launch LLM runs. */
+  runs_left_today?: number | null
 }
 
 export const RULE_BASED_PROFILES = [
