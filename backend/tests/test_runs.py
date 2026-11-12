@@ -12,7 +12,6 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentConfig, Run, Scenario, TraceEvent
-from app.services.agents.service import AgentConfigService
 from app.services.execution.executor import CancelToken
 from app.services.execution.service import sweep_orphaned_runs, try_consume
 from app.services.execution.worker import execute_run, mark_overrun
@@ -136,22 +135,6 @@ def test_tool_errors_are_traced(
 
 
 # --- access and caps -----------------------------------------------------------------------
-
-
-def test_llm_agents_are_not_runnable_yet(
-    api: TestClient,
-    owner_headers: H,
-    viewer_headers: H,
-    ids: dict[str, uuid.UUID],
-    db_session: Session,
-) -> None:
-    gemini = AgentConfigService(db_session).create(
-        {"name": "gemini-test", "provider": "gemini", "model_id": "gemini-flash-latest"}
-    )
-    body = {"scenario_id": str(ids["delay_hub_congestion_001"]), "agent_config_id": str(gemini.id)}
-    owner = api.post(RUNS, json=body, headers=owner_headers)
-    assert owner.status_code == 409 and owner.json()["error"]["code"] == "provider_not_available"
-    assert api.post(RUNS, json=body, headers=viewer_headers).status_code == 403
 
 
 def test_unknown_and_archived_inputs_are_rejected(

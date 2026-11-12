@@ -15,6 +15,7 @@ from app.db.session import get_db
 from app.domain.taxonomy import ToolName
 from app.schemas.agent_config import Provider
 from app.services.agents.service import AgentConfigService, parse_spec, spec_of
+from app.services.execution.service import LLM_RUNS_KEY, usage_today
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -69,6 +70,9 @@ class ProviderStatus(BaseModel):
     configured: bool
     available: bool
     note: str
+    model: str | None = None  # model used for configs whose model_id is "default"
+    daily_cap: int | None = None  # LLM providers only
+    runs_left_today: int | None = None  # LLM providers, owner only (viewers can't launch them)
 
 
 class StatusChangeOut(BaseModel):
@@ -126,8 +130,20 @@ def list_agents(
 
 
 @router.get("/providers", response_model=list[ProviderStatus])
-def provider_status(settings: SettingsDep, _: PrincipalDep) -> list[ProviderStatus]:
+def provider_status(
+    settings: SettingsDep, principal: PrincipalDep, db: Annotated[Session, Depends(get_db)]
+) -> list[ProviderStatus]:
     """Whether each provider is usable. Never reveals keys, only whether one is set."""
+    gemini_ready = settings.gemini_api_key is not None
+    cap = settings.llm_daily_run_cap
+    left = max(0, cap - usage_today(db, LLM_RUNS_KEY)) if principal.is_owner else None
+    if gemini_ready:
+        gemini_note = (
+            f"Runs on {settings.gemini_model} (owner only, max {cap} LLM runs per day, "
+            f"{settings.gemini_rpm_limit} requests per minute)."
+        )
+    else:
+        gemini_note = "Set GEMINI_API_KEY on the server to enable Gemini agents."
     return [
         ProviderStatus(
             provider="rule_based",
@@ -139,9 +155,12 @@ def provider_status(settings: SettingsDep, _: PrincipalDep) -> list[ProviderStat
         ProviderStatus(
             provider="gemini",
             label="Google Gemini",
-            configured=settings.gemini_api_key is not None,
-            available=False,
-            note="LLM agents arrive in Phase 6. Set GEMINI_API_KEY on the server.",
+            configured=gemini_ready,
+            available=gemini_ready,
+            note=gemini_note,
+            model=settings.gemini_model,
+            daily_cap=cap,
+            runs_left_today=left,
         ),
         ProviderStatus(
             provider="openai",

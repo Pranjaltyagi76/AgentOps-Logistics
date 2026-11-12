@@ -11,6 +11,7 @@ from typing import Any
 
 from sqlalchemy import update
 
+from app.core.config import Settings, get_settings
 from app.db.models import Run, Scenario
 from app.schemas.agent_config import AgentConfigSpec
 from app.schemas.scenario import ScenarioSpec
@@ -19,6 +20,8 @@ from app.services.agent_graph.runner import run_scenario
 from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import CancelToken
+from app.services.providers.errors import ProviderError
+from app.services.providers.factory import resolve_model_id
 from app.services.sops.service import PerCallSopSearcher
 
 logger = logging.getLogger(__name__)
@@ -31,6 +34,7 @@ _STATUS_FOR_STOP: dict[str, tuple[str, str | None]] = {
     "cancelled": ("cancelled", None),
     "malformed_output": ("errored", "agent"),
     "agent_error": ("errored", "agent"),
+    "provider_error": ("errored", "infra"),  # quota / outage / auth: excluded from agent metrics
 }
 
 
@@ -63,7 +67,20 @@ def _usage_summary(result: AgentRunResult) -> dict[str, Any] | None:
         "model_calls": len(result.usage),
         "input_tokens": total("input_tokens"),
         "output_tokens": total("output_tokens"),
+        "thinking_tokens": total("thinking_tokens"),
     }
+
+
+def _error_json(result: AgentRunResult) -> dict[str, Any]:
+    if result.stop_reason == "provider_error" and result.errors:
+        last = result.errors[-1]
+        return {
+            "code": last.get("code", "provider_error"),
+            "message": last.get("message"),
+            "status": last.get("status"),
+            "errors": result.errors,
+        }
+    return {"code": result.stop_reason, "errors": result.errors}
 
 
 def mark_overrun(run_id: uuid.UUID, session_factory: SessionFactory) -> None:
@@ -83,7 +100,13 @@ def mark_overrun(run_id: uuid.UUID, session_factory: SessionFactory) -> None:
         evaluate_run_safely(session_factory, run_id)
 
 
-def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionFactory) -> None:
+def execute_run(
+    run_id: uuid.UUID,
+    token: CancelToken,
+    session_factory: SessionFactory,
+    settings: Settings | None = None,
+) -> None:
+    settings = settings or get_settings()
     with session_factory() as db:
         run = db.get(Run, run_id)
         if run is None:
@@ -119,7 +142,7 @@ def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionF
                 "name": config.name,
                 "version": config.version,
                 "provider": config.provider,
-                "model_id": config.model_id,
+                "model_id": resolve_model_id(config, settings),
             },
             "limits": {
                 "max_steps": config.max_steps,
@@ -137,10 +160,19 @@ def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionF
             observer=collector,
             sleep=token.wait,
             hooks=RunHooks(on_event=collector.on_graph_event, should_stop=lambda: token.reason),
+            settings=settings,
         )
     except Exception as exc:  # platform failure, not the agent's fault
-        logger.exception("Run %s crashed", run_id)
-        error = {"code": "platform_error", "type": type(exc).__name__, "message": str(exc)[:500]}
+        if isinstance(exc, ProviderError):  # e.g. the API key was removed after launch
+            logger.warning("Run %s could not start its provider: %s", run_id, exc.code)
+            error = {"type": type(exc).__name__, **exc.to_dict()}
+        else:
+            logger.exception("Run %s crashed", run_id)
+            error = {
+                "code": "platform_error",
+                "type": type(exc).__name__,
+                "message": str(exc)[:500],
+            }
         collector.emit("run_error", error=error)
         if _finish(
             session_factory,
@@ -160,7 +192,7 @@ def execute_run(run_id: uuid.UUID, token: CancelToken, session_factory: SessionF
         status, error_kind = "timed_out", "agent"
     error_json = None
     if result.errors and status == "errored":
-        error_json = {"code": result.stop_reason, "errors": result.errors}
+        error_json = _error_json(result)
         collector.emit("run_error", error=error_json)
     finished_at = _now()
     latency_ms = round((finished_at - started_at).total_seconds() * 1000)

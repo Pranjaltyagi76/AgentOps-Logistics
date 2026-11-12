@@ -22,6 +22,7 @@ from app.services.evaluation.service import evaluate_run_safely
 from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import RunExecutor
 from app.services.execution.worker import execute_run, mark_overrun
+from app.services.providers.factory import provider_problem, resolve_model_id
 from app.services.tools.registry import TOOL_REGISTRY_VERSION
 
 LLM_RUNS_KEY = "llm_runs"
@@ -71,6 +72,15 @@ def try_consume(db: Session, key: str, limit: int, day: date | None = None) -> b
         {"id": uuid.uuid4(), "day": day, "key": key, "limit": limit},
     ).first()
     return row is not None and (row[0] <= limit)
+
+
+def usage_today(db: Session, key: str, day: date | None = None) -> int:
+    day = day or datetime.now(UTC).date()
+    count = db.scalar(
+        text("SELECT count FROM usage_counters WHERE day = :day AND key = :key"),
+        {"day": day, "key": key},
+    )
+    return int(count or 0)
 
 
 def sweep_orphaned_runs(session_factory: SessionFactory) -> int:
@@ -142,11 +152,14 @@ class RunService:
                     code="forbidden",
                     status_code=403,
                 )
-            # Phase 6 replaces this with: try_consume(db, LLM_RUNS_KEY, llm_daily_run_cap).
-            raise RunConflictError(
-                f"Provider '{config.provider}' is not runnable yet (LLM agents arrive in Phase 6)",
-                code="provider_not_available",
-            )
+            problem = provider_problem(config, self.settings)
+            if problem is not None:
+                code = (
+                    "provider_not_configured"
+                    if config.provider == "gemini"
+                    else "provider_not_available"
+                )
+                raise RunConflictError(problem, code=code)
         if not self.limiter.allow(f"runs:{principal.subject}"):
             raise AppError(
                 "Too many runs started; wait a minute", code="rate_limited", status_code=429
@@ -157,6 +170,18 @@ class RunService:
         if (active or 0) >= self.settings.max_queued_runs:
             raise AppError(
                 "The run queue is full; try again shortly", code="run_queue_full", status_code=429
+            )
+
+        # Counted last, so a launch rejected for another reason never uses up the daily cap.
+        if config.is_llm and not try_consume(
+            self.db, LLM_RUNS_KEY, self.settings.llm_daily_run_cap
+        ):
+            self.db.rollback()
+            raise AppError(
+                f"The daily limit of {self.settings.llm_daily_run_cap} LLM runs is used up; "
+                "it resets at 00:00 UTC",
+                code="llm_daily_cap_reached",
+                status_code=429,
             )
 
         # The exact versions used are frozen from now on (edits create new versions).
@@ -177,6 +202,7 @@ class RunService:
                 "policy": POLICY_VERSION,
                 "taxonomy": TAXONOMY_VERSION,
                 "prompt": config.prompt_version,
+                "model": resolve_model_id(config, self.settings),
                 "evaluator": None,  # set in Phase 5
             },
             triggered_by_role=principal.role,
@@ -194,7 +220,7 @@ class RunService:
         return run
 
     def _job(self, run_id: uuid.UUID, token) -> None:  # type: ignore[no-untyped-def]
-        execute_run(run_id, token, self.session_factory)
+        execute_run(run_id, token, self.session_factory, self.settings)
 
     # --- read ----------------------------------------------------------------------------
 

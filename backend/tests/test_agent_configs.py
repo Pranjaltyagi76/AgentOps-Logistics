@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 
@@ -141,12 +141,14 @@ def test_provider_status_never_reveals_keys(
     from app.db.session import get_db
     from app.main import create_app
 
-    settings = test_settings.model_copy(update={"gemini_api_key": "AIza-secret-value"})
+    settings = test_settings.model_copy(update={"gemini_api_key": SecretStr("AIza-secret-value")})
     app = create_app(settings)
     app.dependency_overrides[get_db] = lambda: db_session
     with Client(app) as client:
         response = client.get(f"{BASE}/providers", headers=viewer_headers)
     body = {p["provider"]: p for p in response.json()}
     assert body["rule_based"]["available"] is True
-    assert body["gemini"]["configured"] is True and body["gemini"]["available"] is False
-    assert "AIza" not in response.text
+    assert body["gemini"]["configured"] is True and body["gemini"]["available"] is True
+    assert body["gemini"]["runs_left_today"] is None  # viewers can't launch LLM runs
+    assert body["openai"]["available"] is False
+    assert "AIza" not in response.text and "secret-value" not in response.text
