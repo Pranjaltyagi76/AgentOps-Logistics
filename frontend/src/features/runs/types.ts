@@ -126,4 +126,51 @@ export interface Evaluation {
   assertions: EvaluationAssertion[]
   shows_expected_values: boolean
   created_at: string
+  /** Advisory LLM judge result; never part of the score or verdict. */
+  judge?: JudgeResult | null
+  /** Owner only: the judge can be run on this server. */
+  judge_available?: boolean
+}
+
+export interface JudgeResult {
+  status: string
+  advisory: boolean
+  score: number
+  uncertainty: 'low' | 'medium' | 'high'
+  judge_model: string
+  prompt_version: string
+  created_at: string
+  // Owner only
+  rationale?: string
+  evidence_refs?: string[]
+  unknown_refs?: string[]
+  served_model?: string
+}
+
+export type Severity = 'critical' | 'high' | 'medium' | 'low'
+
+export interface FailureItem {
+  position: number
+  primary: boolean
+  failure_type: string
+  severity: Severity
+  likely_stage: string
+  confidence: 'high' | 'medium' | 'low'
+  assertion_ids: string[]
+  trace_refs: string[]
+  summary: string
+  debugging_recommendation: string
+  // Owner only (null for demo viewers): may name the expected answer.
+  diagnosis: string | null
+  evidence: Record<string, unknown> | null
+}
+
+export interface FailureReport {
+  run_id: string
+  diagnoser_version: string | null
+  evaluator_version: string
+  verdict: Verdict
+  status: 'diagnosed' | 'no_failures' | 'not_diagnosed'
+  items: FailureItem[]
+  shows_details: boolean
 }

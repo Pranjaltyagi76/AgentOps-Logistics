@@ -11,8 +11,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toApiError } from '@/lib/api'
 import { formatDateTime, humanize } from '@/lib/format'
 
-import { isActive, useCancelRun, useEvaluation, useLaunchRun, useRun, useTrace } from './api'
+import { isActive, useCancelRun, useEvaluation, useFailureReport, useLaunchRun, useRun, useTrace } from './api'
 import { EvaluationPanel } from './EvaluationPanel'
+import { FailureReportPanel } from './FailureReportPanel'
+import { JudgePanel } from './JudgePanel'
 import { RunStatusBadge } from './RunStatusBadge'
 import { TraceTimeline } from './TraceTimeline'
 import type { RunDetail } from './types'
@@ -120,6 +122,7 @@ export function RunDetailPage() {
     if (finalStatus) void refetchTrace()
   }, [finalStatus, refetchTrace])
   const evaluation = useEvaluation(id, Boolean(finalStatus) && finalStatus !== 'cancelled')
+  const report = useFailureReport(id, Boolean(finalStatus) && finalStatus !== 'cancelled')
   const refetchEvaluation = evaluation.refetch
   useEffect(() => {
     if (finalStatus && finalStatus !== 'cancelled') void refetchEvaluation()
@@ -207,7 +210,11 @@ export function RunDetailPage() {
       ) : null}
 
       {evaluation.data ? (
-        <EvaluationPanel evaluation={evaluation.data} owner={isOwner} />
+        <>
+          <EvaluationPanel evaluation={evaluation.data} owner={isOwner} />
+          {report.data ? <FailureReportPanel report={report.data} owner={isOwner} /> : null}
+          <JudgePanel runId={r.id} evaluation={evaluation.data} />
+        </>
       ) : r.status === 'cancelled' ? (
         <Alert><AlertDescription>Cancelled runs are not scored.</AlertDescription></Alert>
       ) : active ? (

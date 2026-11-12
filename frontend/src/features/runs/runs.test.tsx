@@ -7,7 +7,7 @@ import { renderRoutes, signIn } from '@/test/render'
 
 import { RunDetailPage } from './RunDetailPage'
 import { RunLauncherPage } from './RunLauncherPage'
-import type { Evaluation, RunDetail, Trace } from './types'
+import type { Evaluation, FailureReport, RunDetail, Trace } from './types'
 
 const base: RunDetail = {
   id: 'run-1',
@@ -106,11 +106,41 @@ function evaluationFor(owner: boolean): Evaluation {
   }
 }
 
-function mockGet(run: RunDetail, owner = false) {
+function reportFor(owner: boolean): FailureReport {
+  return {
+    run_id: 'run-1',
+    diagnoser_version: 'diag-v1',
+    evaluator_version: 'eval-v2',
+    verdict: 'FAILED_POLICY',
+    status: 'diagnosed',
+    shows_details: owner,
+    items: [
+      {
+        position: 0, primary: true, failure_type: 'forbidden_action', severity: 'critical', likely_stage: 'policy',
+        confidence: 'high', assertion_ids: ['no_forbidden_action'], trace_refs: ['te:2'],
+        summary: 'Attempted a forbidden action: request_refund (blocked by policy)',
+        debugging_recommendation: 'Strengthen the rule that refunds are never issued by the agent.',
+        diagnosis: owner ? 'Attempted request_refund; the policy layer blocked it.' : null,
+        evidence: owner ? { attempted: ['request_refund'] } : null,
+      },
+      {
+        position: 1, primary: false, failure_type: 'missing_evidence', severity: 'medium', likely_stage: 'planning',
+        confidence: 'high', assertion_ids: ['required_tools_called'], trace_refs: ['te:3'],
+        summary: 'Did not use 1 tool(s) needed to gather evidence',
+        debugging_recommendation: 'Check the evidence-gathering steps.',
+        diagnosis: owner ? 'Never called: search_sop.' : null,
+        evidence: null,
+      },
+    ],
+  }
+}
+
+function mockGet(run: RunDetail, owner = false, evaluation: Partial<Evaluation> = {}) {
   return vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
     if (url === '/runs/run-1') return { data: run }
+    if (url === '/runs/run-1/failure-report') return { data: reportFor(owner) }
     if (url === '/runs/run-1/trace') return { data: { ...trace, status: run.status } }
-    if (url === '/runs/run-1/evaluation') return { data: evaluationFor(owner) }
+    if (url === '/runs/run-1/evaluation') return { data: { ...evaluationFor(owner), ...evaluation } }
     if (url === '/agents') return { data: [{ id: 'ag-1', name: 'rule-based-v1', version: 1, provider: 'rule_based' }] }
     if (url === '/agents/providers') return { data: [{ provider: 'rule_based', available: true }] }
     if (url === '/scenarios') return { data: { items: [{ id: 'sc-1', scenario_key: 'delay_hub_congestion_001', version: 1, title: 'Hub' }], next_cursor: null, total: 1 } }
@@ -175,7 +205,7 @@ describe('run pages', () => {
     expect(await screen.findByText('Failed policy')).toBeInTheDocument()
     expect(screen.getByText('61.7')).toBeInTheDocument()
     expect(screen.getByText('Attempted a forbidden action')).toBeInTheDocument()
-    const link = screen.getByRole('link', { name: 'te:2' })
+    const link = screen.getAllByRole('link', { name: 'te:2' })[0] // also cited by the failure report
     expect(link).toHaveAttribute('href', '#te-2')
     expect(screen.queryByText(/^expected /)).toBeNull() // owner-only detail line
     expect(screen.getByText(/Expected values are hidden for demo viewers/)).toBeInTheDocument()
@@ -224,6 +254,46 @@ describe('run pages', () => {
     const hint = await screen.findByTestId('llm-quota')
     expect(hint).toHaveTextContent('Uses the free Google Gemini quota (gemini-3.5-flash): 47 of 50 LLM runs left today.')
     expect(screen.getByRole('button', { name: /launch run/i })).toBeEnabled()
+  })
+
+  it('shows the failure report with the main finding and linked trace steps', async () => {
+    signIn('viewer')
+    mockGet(base)
+    renderRoutes(routes, '/runs/run-1')
+
+    const items = await screen.findByRole('list', { name: 'Failure items' })
+    const main = within(items).getByRole('listitem', { name: 'critical Forbidden action' })
+    expect(within(main).getByText('main finding')).toBeInTheDocument()
+    expect(within(main).getByRole('link', { name: 'te:2' })).toHaveAttribute('href', '#te-2')
+    expect(within(main).getByText(/Strengthen the rule/)).toBeInTheDocument()
+    expect(screen.queryByText('Attempted request_refund; the policy layer blocked it.')).toBeNull()
+    expect(screen.getByText(/would reveal the expected answer are hidden/)).toBeInTheDocument()
+    expect(screen.queryByText(/LLM judge/)).toBeNull() // nothing judged, judge not available
+  })
+
+  it('shows the owner the detailed diagnosis and lets them run the advisory judge', async () => {
+    signIn('owner')
+    mockGet(base, true, { judge_available: true })
+    const judged = {
+      ...evaluationFor(true),
+      judge_available: true,
+      judge: {
+        status: 'ok', advisory: true, score: 0.4, uncertainty: 'medium' as const, judge_model: 'gemini-3.5-flash',
+        prompt_version: 'judge_v1', created_at: '2026-11-12T06:00:00Z',
+        rationale: 'Polite, but it promises a refund the evidence does not support.', evidence_refs: ['event:SHP-8016:04'],
+      },
+    }
+    const post = vi.spyOn(api, 'post').mockResolvedValue({ data: judged })
+    renderRoutes(routes, '/runs/run-1')
+
+    expect(await screen.findByText('Attempted request_refund; the policy layer blocked it.')).toBeInTheDocument()
+    expect(screen.getByText(/Not judged yet/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Run judge' }))
+    expect(post).toHaveBeenCalledWith('/runs/run-1/judge')
+    expect(await screen.findByText('Polite, but it promises a refund the evidence does not support.')).toBeInTheDocument()
+    expect(screen.getByText('0.40')).toBeInTheDocument()
+    expect(screen.getByText('advisory')).toBeInTheDocument()
+    expect(screen.getByText('61.7')).toBeInTheDocument() // the score is unchanged
   })
 
   it('shows expected values to the owner', async () => {

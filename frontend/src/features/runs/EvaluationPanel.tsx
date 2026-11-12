@@ -25,7 +25,7 @@ function show(value: unknown): string {
   return String(value)
 }
 
-function TraceRefs({ refs }: { refs: string[] }) {
+export function TraceRefs({ refs }: { refs: string[] }) {
   if (!refs.length) return null
   return (
     <span className="ml-1 inline-flex flex-wrap gap-1 align-middle">

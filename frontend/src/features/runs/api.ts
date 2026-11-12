@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import {
   ACTIVE_STATUSES,
   type Evaluation,
+  type FailureReport,
   type RunDetail,
   type RunPage,
   type RunStatus,
@@ -77,5 +78,24 @@ export function useEvaluation(id: string, finished: boolean) {
     queryFn: async () => (await api.get<Evaluation>(`/runs/${id}/evaluation`)).data,
     enabled: finished,
     retry: false,
+  })
+}
+
+/** Failure report for the run's latest evaluation (same availability as the evaluation). */
+export function useFailureReport(id: string, finished: boolean) {
+  return useQuery({
+    queryKey: ['runs', 'failure-report', id],
+    queryFn: async () => (await api.get<FailureReport>(`/runs/${id}/failure-report`)).data,
+    enabled: finished,
+    retry: false,
+  })
+}
+
+/** Owner: run the advisory LLM judge on a scored run. */
+export function useRunJudge(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => (await api.post<Evaluation>(`/runs/${id}/judge`)).data,
+    onSuccess: (evaluation) => queryClient.setQueryData(['runs', 'evaluation', id], evaluation),
   })
 }
