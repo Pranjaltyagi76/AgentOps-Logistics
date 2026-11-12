@@ -416,3 +416,38 @@ def test_no_retry_when_a_retry_could_not_finish_before_the_deadline() -> None:
             [{"role": "user", "content": "x"}], [], temperature=1.0, deadline=clock.now + 8
         )
     assert gemini.request_count == 1 and clock.sleeps == []
+
+
+def test_throttle_waits_do_not_count_against_the_agent_time_limit(
+    make_scenario: Factory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Three calls through a 1-per-0.3 s throttle take ~0.6 s of waiting, past a 0.4 s limit;
+    the waits are platform time, so the run still completes and records them."""
+    monkeypatch.setattr("app.services.providers.throttle.WINDOW_S", 0.3)
+    paused: list[float] = []
+    gemini = GeminiProvider(
+        FakeGeminiClient(
+            [
+                response(fcall("get_shipment", {"shipment_id": "SHP-1042"})),
+                response(fcall("get_tracking_events", {"shipment_id": "SHP-1042"})),
+                response(fcall("submit_outcome", OUTCOME)),
+            ]
+        ),
+        "gemini-3.5-flash",
+        throttle=RequestThrottle(1),
+        on_pause=paused.append,
+    )
+    spec = ScenarioSpec.model_validate(make_scenario())
+    gateway = ToolGateway.for_scenario(
+        ScenarioDataView.from_spec(spec), NoSops(), sleep=lambda s: None
+    )
+    result = run_agent(
+        build_agent_input(spec, gateway.permitted_tools),
+        LLMDecider(gemini),
+        gateway,
+        system_prompt="test",
+        limits=AgentLimits(max_steps=6, timeout_s=0.4),
+    )
+    assert result.stop_reason == "completed"
+    assert len(paused) == 2 and result.paused_ms >= 500
+    assert result.paused_ms == round(gemini.throttle_wait_s * 1000)

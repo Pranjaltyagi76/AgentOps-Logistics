@@ -223,7 +223,13 @@ class ManualExecutor:
         self.tokens: dict[Any, CancelToken] = {}
 
     def submit(
-        self, run_id: Any, job: Any, *, timeout_s: Any = None, on_overrun: Any = None
+        self,
+        run_id: Any,
+        job: Any,
+        *,
+        timeout_s: Any = None,
+        on_overrun: Any = None,
+        lane: str = "default",
     ) -> None:
         self.jobs[run_id] = job
         self.tokens[run_id] = CancelToken()

@@ -66,12 +66,18 @@ class LLMDecider:
         self.temperature = temperature
         self.name = f"llm:{provider.name}"
 
+    @property
+    def paused_s(self) -> float:
+        """Time the provider spent waiting for its request throttle (not agent time)."""
+        return float(getattr(self.provider, "throttle_wait_s", 0.0))
+
     def decide(self, state: AgentState) -> ModelTurn:
+        deadline = state.get("deadline")
         return self.provider.generate(
             state["messages"],
             state["input"]["tools"],
             temperature=self.temperature,
-            deadline=state.get("deadline"),
+            deadline=None if deadline is None else deadline + self.paused_s,
         )
 
 

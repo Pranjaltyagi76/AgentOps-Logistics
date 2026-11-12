@@ -60,6 +60,7 @@ class RunHooks:
 
     on_event: EventSink = _no_event
     should_stop: Callable[[], str | None] = _never_stop
+    on_pause: Callable[[float], None] = lambda seconds: None  # platform waits (LLM throttle)
 
 
 @dataclass
@@ -73,6 +74,7 @@ class AgentRunResult:
     errors: list[dict[str, Any]]
     duration_ms: int
     usage: list[dict[str, Any]] = field(default_factory=list)
+    paused_ms: int = 0  # throttle waits, excluded from the time limit
 
 
 def _turn_to_message(turn: ModelTurn) -> dict[str, Any]:
@@ -81,6 +83,10 @@ def _turn_to_message(turn: ModelTurn) -> dict[str, Any]:
         "content": turn.text,
         "tool_calls": [c.model_dump(mode="json") for c in turn.tool_calls],
     }
+
+
+def _paused(decider: Decider) -> float:
+    return float(getattr(decider, "paused_s", 0.0))
 
 
 def build_agent_graph(
@@ -116,7 +122,7 @@ def build_agent_graph(
         external = hooks.should_stop()
         if external is not None:
             return stop(external)
-        if time.monotonic() > deadline:
+        if time.monotonic() > deadline + _paused(decider):
             return stop("timeout", timeout_s=limits.timeout_s)
         if state["step_count"] >= limits.max_steps:
             return stop("step_limit", max_steps=limits.max_steps)
@@ -322,4 +328,5 @@ def run_agent(
         errors=final["errors"],
         duration_ms=round((time.monotonic() - started) * 1000),
         usage=usage_log,
+        paused_ms=round(_paused(decider) * 1000),
     )

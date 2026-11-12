@@ -1,17 +1,22 @@
 """Background execution of runs (decisions D-01, D-02).
 
-`InProcessExecutor` runs jobs on a bounded thread pool, so at most `max_workers` runs execute
-at once and the rest wait in the queue. Each run gets a `CancelToken`:
+`InProcessExecutor` runs jobs on bounded thread pools, one per lane: the default lane runs at
+most `max_workers` runs at once; the "llm" lane (Phase 8) runs LLM-backed runs, by default one
+at a time, so a Gemini suite paces itself and never starves rule-based runs. Each run gets a
+`CancelToken`:
 - the agent loop checks it before every step and before every tool call;
 - simulated tool latency waits on it, so cancelling interrupts a slow tool immediately;
 - a watchdog cancels it with reason "timeout" when a run overruns its limit, and calls an
-  `on_overrun` callback that marks the run timed out even if the job is stuck.
+  `on_overrun` callback that marks the run timed out even if the job is stuck;
+- `token.extend(seconds)` pushes the watchdog back, for platform delays that are not the
+  agent's time (waiting for the LLM request throttle).
 
 A restart loses in-flight runs; the startup sweeper marks them as orphaned (decision D-10).
 """
 
 import logging
 import threading
+import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -24,6 +29,13 @@ class CancelToken:
     def __init__(self) -> None:
         self._event = threading.Event()
         self.reason: str | None = None
+        self.extended_s = 0.0  # added to the watchdog limit (platform waits)
+        self._extend_lock = threading.Lock()
+
+    def extend(self, seconds: float) -> None:
+        if seconds > 0:
+            with self._extend_lock:
+                self.extended_s += seconds
 
     def cancel(self, reason: str = "cancelled") -> None:
         if not self._event.is_set():
@@ -50,6 +62,7 @@ class RunExecutor(Protocol):
         *,
         timeout_s: float | None = None,
         on_overrun: Callable[[], None] | None = None,
+        lane: str = "default",
     ) -> None: ...
 
     def cancel(self, run_id: uuid.UUID, reason: str = "cancelled") -> bool: ...
@@ -58,14 +71,22 @@ class RunExecutor(Protocol):
 
 
 class InProcessExecutor:
-    def __init__(self, max_workers: int = 2, *, watchdog_grace_s: float = 15.0) -> None:
+    def __init__(
+        self, max_workers: int = 2, *, llm_workers: int = 1, watchdog_grace_s: float = 15.0
+    ) -> None:
         self.max_workers = max_workers
+        self.llm_workers = llm_workers
         self.watchdog_grace_s = watchdog_grace_s
-        self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="run")
+        self._pools = {
+            "default": ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="run"),
+            "llm": ThreadPoolExecutor(max_workers=llm_workers, thread_name_prefix="llm-run"),
+        }
         self._tokens: dict[uuid.UUID, CancelToken] = {}
         self._lock = threading.Lock()
         self.active = 0
         self.peak_active = 0
+        self.active_by_lane: dict[str, int] = {"default": 0, "llm": 0}
+        self.peak_by_lane: dict[str, int] = {"default": 0, "llm": 0}
 
     def submit(
         self,
@@ -74,11 +95,33 @@ class InProcessExecutor:
         *,
         timeout_s: float | None = None,
         on_overrun: Callable[[], None] | None = None,
+        lane: str = "default",
     ) -> None:
         token = CancelToken()
         with self._lock:
             self._tokens[run_id] = token
-        self._pool.submit(self._run, run_id, job, token, timeout_s, on_overrun)
+        pool = self._pools.get(lane, self._pools["default"])
+        pool.submit(self._run, run_id, job, token, timeout_s, on_overrun, lane)
+
+    def _watch(
+        self,
+        run_id: uuid.UUID,
+        token: CancelToken,
+        limit_s: float,
+        done: threading.Event,
+        on_overrun: Callable[[], None] | None,
+    ) -> None:
+        started = time.monotonic()
+        while True:
+            remaining = started + limit_s + token.extended_s - time.monotonic()
+            if remaining <= 0:
+                break
+            if done.wait(min(remaining, 1.0)):
+                return
+        logger.warning("Run %s exceeded its time limit; cancelling", run_id)
+        token.cancel("timeout")
+        if on_overrun is not None:
+            on_overrun()
 
     def _run(
         self,
@@ -87,31 +130,30 @@ class InProcessExecutor:
         token: CancelToken,
         timeout_s: float | None,
         on_overrun: Callable[[], None] | None,
+        lane: str,
     ) -> None:
         with self._lock:
             self.active += 1
             self.peak_active = max(self.peak_active, self.active)
-        watchdog: threading.Timer | None = None
+            self.active_by_lane[lane] = self.active_by_lane.get(lane, 0) + 1
+            self.peak_by_lane[lane] = max(self.peak_by_lane.get(lane, 0), self.active_by_lane[lane])
+        done = threading.Event()
         if timeout_s is not None:
-
-            def overrun() -> None:
-                logger.warning("Run %s exceeded its time limit; cancelling", run_id)
-                token.cancel("timeout")
-                if on_overrun is not None:
-                    on_overrun()
-
-            watchdog = threading.Timer(timeout_s + self.watchdog_grace_s, overrun)
-            watchdog.daemon = True
-            watchdog.start()
+            threading.Thread(
+                target=self._watch,
+                args=(run_id, token, timeout_s + self.watchdog_grace_s, done, on_overrun),
+                daemon=True,
+                name=f"watchdog-{run_id}",
+            ).start()
         try:
             job(token)
         except Exception:  # a job must never take the worker thread down
             logger.exception("Run %s failed outside the agent loop", run_id)
         finally:
-            if watchdog is not None:
-                watchdog.cancel()
+            done.set()
             with self._lock:
                 self.active -= 1
+                self.active_by_lane[lane] -= 1
                 self._tokens.pop(run_id, None)
 
     def cancel(self, run_id: uuid.UUID, reason: str = "cancelled") -> bool:
@@ -124,7 +166,8 @@ class InProcessExecutor:
 
     def shutdown(self) -> None:
         # Pending runs are left queued in the database; the sweeper handles them on restart.
-        self._pool.shutdown(wait=False, cancel_futures=True)
+        for pool in self._pools.values():
+            pool.shutdown(wait=False, cancel_futures=True)
 
 
 class InlineExecutor:
@@ -140,6 +183,7 @@ class InlineExecutor:
         *,
         timeout_s: float | None = None,
         on_overrun: Callable[[], None] | None = None,
+        lane: str = "default",
     ) -> None:
         token = self.tokens.setdefault(run_id, CancelToken())
         job(token)

@@ -98,3 +98,47 @@ def test_cancel_token_wait_is_interruptible() -> None:
     assert token.reason == "cancelled"
     token.cancel("timeout")  # first reason wins
     assert token.reason == "cancelled"
+
+
+def test_llm_runs_have_their_own_lane_one_at_a_time() -> None:
+    executor = InProcessExecutor(max_workers=2, llm_workers=1)
+    done = threading.Event()
+    finished: list[str] = []
+    lock = threading.Lock()
+
+    def job(name: str):  # type: ignore[no-untyped-def]
+        def run(token):  # type: ignore[no-untyped-def]
+            time.sleep(0.05)
+            with lock:
+                finished.append(name)
+                if len(finished) == 5:
+                    done.set()
+
+        return run
+
+    for i in range(3):
+        executor.submit(uuid.uuid4(), job(f"llm{i}"), lane="llm")
+    for i in range(2):
+        executor.submit(uuid.uuid4(), job(f"rb{i}"))
+    assert done.wait(5)
+    assert executor.peak_by_lane["llm"] == 1
+    assert executor.peak_by_lane["default"] == 2
+    executor.shutdown()
+
+
+def test_extending_the_token_holds_off_the_watchdog() -> None:
+    executor = InProcessExecutor(max_workers=1, watchdog_grace_s=0.0)
+    overruns: list[bool] = []
+    reasons: list[str | None] = []
+    done = threading.Event()
+
+    def job(token):  # type: ignore[no-untyped-def]
+        token.extend(1.0)  # e.g. waited for the LLM throttle
+        time.sleep(0.4)
+        reasons.append(token.reason)
+        done.set()
+
+    executor.submit(uuid.uuid4(), job, timeout_s=0.2, on_overrun=lambda: overruns.append(True))
+    assert done.wait(5)
+    assert reasons == [None] and overruns == []
+    executor.shutdown()

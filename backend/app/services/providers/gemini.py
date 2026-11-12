@@ -42,6 +42,8 @@ MAX_RETRY_AFTER_S = 20.0
 # Gemini rejects shorter per-request deadlines (400 "Minimum allowed deadline is 10s").
 MIN_REQUEST_TIMEOUT_S = 10.0
 MAX_OUTPUT_TOKENS = 4096
+# Throttle waits are platform delay, not agent time; one wait never needs more than a window.
+MAX_THROTTLE_WAIT_S = 65.0
 NOT_EXECUTED = {"ok": False, "code": "not_executed", "message": "This call was not executed."}
 
 
@@ -285,6 +287,7 @@ class GeminiProvider:
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
         should_stop: Callable[[], bool] = lambda: False,
+        on_pause: Callable[[float], None] = lambda seconds: None,
     ) -> None:
         self.client = client
         self.model_id = model_id
@@ -296,6 +299,8 @@ class GeminiProvider:
         self._sleep = sleep
         self._clock = clock
         self._should_stop = should_stop
+        self._on_pause = on_pause
+        self.throttle_wait_s = 0.0  # excluded from the agent's time limit
         # Per-run memory, never persisted: replay parts (with thought signatures) per model turn.
         self._model_turns: list[list[types.Part]] = []
         self._native_ids: set[str] = set()
@@ -326,9 +331,14 @@ class GeminiProvider:
         """
         attempts = self.max_retries + 1
         for attempt in range(attempts):
-            self.throttle.acquire(
-                sleep=self._sleep, deadline=deadline, should_stop=self._should_stop
+            waited = self.throttle.acquire(
+                sleep=self._sleep, should_stop=self._should_stop, max_wait_s=MAX_THROTTLE_WAIT_S
             )
+            if waited:
+                self.throttle_wait_s += waited
+                self._on_pause(waited)
+                if deadline is not None:
+                    deadline += waited
             timeout_s = self.request_timeout_s
             if deadline is not None:
                 timeout_s = max(MIN_REQUEST_TIMEOUT_S, min(timeout_s, deadline - self._clock()))

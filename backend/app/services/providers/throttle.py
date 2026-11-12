@@ -1,8 +1,9 @@
 """Process-wide request throttle for LLM calls (decision D-16).
 
 A sliding one-minute window: at most `rpm` requests start in any 60 s. Callers that would
-exceed it wait (on an interruptible sleep) until a slot frees up, but never past their
-deadline, so a throttled call cannot push a run past its own timeout.
+exceed it wait (on an interruptible sleep) until a slot frees up, bounded by a deadline or a
+maximum wait. `acquire` returns how long it waited, so callers can treat that time as platform
+delay rather than agent time (Phase 8).
 """
 
 import threading
@@ -41,17 +42,25 @@ class RequestThrottle:
         sleep: Callable[[float], None],
         deadline: float | None = None,
         should_stop: Callable[[], bool] = lambda: False,
-    ) -> None:
+        max_wait_s: float | None = None,
+    ) -> float:
+        waited = 0.0
         while True:
             wait = self._reserve()
             if wait <= 0:
-                return
+                return waited
+            if max_wait_s is not None and waited + wait > max_wait_s:
+                raise ProviderQuotaError(
+                    f"Local Gemini throttle ({self.rpm}/min) had no free slot for "
+                    f"{max_wait_s:.0f} s"
+                )
             if deadline is not None and self._clock() + wait > deadline:
                 raise ProviderQuotaError(
                     f"Local Gemini throttle ({self.rpm}/min) has no free slot before the run's "
                     "deadline"
                 )
             sleep(wait)
+            waited += wait
             if should_stop():
                 raise ProviderQuotaError("Stopped while waiting for the Gemini throttle")
 

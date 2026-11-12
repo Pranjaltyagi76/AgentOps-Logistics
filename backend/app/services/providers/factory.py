@@ -66,6 +66,7 @@ def build_provider(
     *,
     sleep: Callable[[float], None] = time.sleep,
     should_stop: Callable[[], bool] = lambda: False,
+    on_pause: Callable[[float], None] = lambda seconds: None,
     client: Any = None,
 ) -> "GeminiProvider":
     from app.services.providers.gemini import GeminiProvider
@@ -85,6 +86,7 @@ def build_provider(
         request_timeout_s=settings.gemini_request_timeout_s,
         sleep=sleep,
         should_stop=should_stop,
+        on_pause=on_pause,
     )
 
 

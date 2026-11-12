@@ -48,7 +48,10 @@ class Settings(BaseSettings):
 
     # Runs (Phase 4, context/system_design.md §8)
     max_concurrent_runs: int = Field(default=2, ge=1, le=16)
-    max_queued_runs: int = Field(default=20, ge=1, le=500)
+    # LLM-backed runs use their own lane (Phase 8): one at a time keeps a suite inside the RPM.
+    max_concurrent_llm_runs: int = Field(default=1, ge=1, le=8)
+    # Queued + running runs; 60 fits a 10-scenario suite with 3 repeats and a few single runs.
+    max_queued_runs: int = Field(default=60, ge=1, le=500)
     run_rate_limit_per_minute: int = Field(default=10, ge=1)
     max_request_bytes: int = Field(default=1_000_000, ge=1_000)
     run_watchdog_grace_s: float = Field(default=15.0, ge=0)

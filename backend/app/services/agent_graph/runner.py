@@ -28,6 +28,7 @@ def build_decider(
     *,
     sleep: Callable[[float], None] = time.sleep,
     should_stop: Callable[[], bool] = lambda: False,
+    on_pause: Callable[[float], None] = lambda seconds: None,
 ) -> Decider:
     """Rule-based profile, or an LLMDecider over the configured provider.
 
@@ -36,7 +37,11 @@ def build_decider(
     if config.provider == "rule_based":
         return RuleBasedDecider(cast(Profile, config.model_id))
     provider = build_provider(
-        config, settings or get_settings(), sleep=sleep, should_stop=should_stop
+        config,
+        settings or get_settings(),
+        sleep=sleep,
+        should_stop=should_stop,
+        on_pause=on_pause,
     )
     return LLMDecider(provider, temperature=config.temperature)
 
@@ -68,6 +73,7 @@ def run_scenario(
             settings,
             sleep=sleep or time.sleep,
             should_stop=lambda: hooks is not None and hooks.should_stop() is not None,
+            on_pause=hooks.on_pause if hooks is not None else (lambda seconds: None),
         ),
         gateway,
         system_prompt=config.system_prompt or "",

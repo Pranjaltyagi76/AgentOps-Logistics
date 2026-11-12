@@ -55,7 +55,9 @@ def create_app(
     app.state.settings = settings
     app.state.session_factory = session_factory or get_sessionmaker()
     app.state.executor = executor or InProcessExecutor(
-        settings.max_concurrent_runs, watchdog_grace_s=settings.run_watchdog_grace_s
+        settings.max_concurrent_runs,
+        llm_workers=settings.max_concurrent_llm_runs,
+        watchdog_grace_s=settings.run_watchdog_grace_s,
     )
     app.state.run_limiter = SlidingWindowLimiter(settings.run_rate_limit_per_minute)
 
