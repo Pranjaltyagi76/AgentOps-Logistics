@@ -75,7 +75,8 @@ class Settings(BaseSettings):
     # Optional LLM judge (Phase 7): advisory only, never part of the score; owner-triggered.
     llm_judge_enabled: bool = False
     llm_judge_model: str | None = Field(default=None, pattern=r"^[a-z0-9][a-z0-9.\-]{2,80}$")
-    llm_judge_daily_cap: int = Field(default=30, ge=0)
+    # Shares the Gemini free tier's ~20 requests/day with agent runs (1-2 requests per call).
+    llm_judge_daily_cap: int = Field(default=4, ge=0)
 
     @field_validator("gemini_api_key", "openai_api_key", mode="before")
     @classmethod
