@@ -22,7 +22,7 @@
 | 6 | Gemini LLM agent | ✅ done (2026-11-12) | 3 (second half) |
 | 7 | Failure diagnosis (+ optional judge) | ✅ done (2026-11-12) | 6 |
 | 8 | Benchmark suites and regression | ✅ done (2026-11-12) | 7 |
-| 9 | Dashboard and reports | ⬜ | 8 |
+| 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
 | 10 | RAG and expanded scenarios (30+) | ⬜ | 9 |
 | 11 | Deployment | ⬜ | 10 |
 | 12 | Portfolio polish | ⬜ | 11 |
@@ -392,8 +392,34 @@ Tasks
 - UX polish: loading/empty/error/success states, backend-waking banner.
 
 Acceptance
-- [ ] Every KPI traceable to a SQL query over persisted runs (tests on seeded fixtures)
-- [ ] Exports include run IDs, scenario versions, agent version, evaluator version, breakdown, failures
+- [x] Every KPI traceable to a SQL query over persisted runs: each KPI is one SQL statement returned with its value
+  and definition; a test re-runs every statement and gets the same value, and the values match hand-computed
+  figures on the golden v1 + v2 MVP suites (pass rate 0.6, root-cause accuracy 0.85, 6 policy violations,
+  escalation accuracy 0.9) (`tests/test_dashboard_reports.py`)
+- [x] Exports include run IDs, scenario versions, agent version (and config snapshot), evaluator and diagnoser
+  versions, score breakdown, safety-gate failures and failure items; JSON and CSV, stable CSV columns (tests)
+- [x] Demo data labelled everywhere it appears and excludable; unmeasured values show "unknown" (cost always;
+  every rate on an empty database) (tests + browser)
+- [x] Checked in the browser as owner and as demo viewer (viewer exports have no expected values or owner diagnosis)
+
+Results: backend 372 tests (+2 opt-in `llm`), frontend 31 tests; lint, typecheck and build clean.
+Initial JS 214.6 KB gzip (budget 300 KB).
+
+Implementation notes
+- Code: `app/services/dashboard/service.py` (KPI SQL), `app/services/reports/service.py`, `app/api/v1/dashboard.py`
+  (`GET /dashboard/summary`, `GET /reports/runs/{id}`, `GET /reports/suite-runs/{id}`, `?format=json|csv`),
+  `scripts/seed_demo.py`; frontend `features/dashboard`, `features/reports`, `components/data-display.tsx`,
+  `lib/slowRequests.ts` + `BackendWakingBanner`.
+- "Scored" runs exclude platform errors (verdict ERROR) and unscored runs from every rate. A run's current
+  evaluation is the one of the evaluator version recorded on the run; its failure items are that evaluation's.
+- Demo data = runs and suite runs created by `scripts/seed_demo.py` (the MVP suite with both rule-based agents,
+  no LLM, idempotent). Runs people start are never demo.
+- Charts follow the dataviz method: KPI tiles (no chart), ranked meter lists for failure types and for agent
+  versions (one validated hue, light #2a78d6 / dark #3987e5, bar under the name, figure printed beside it).
+  Built in HTML/CSS, so Recharts was not needed and the bundle grew by only ~13 KB.
+- The dashboard is the home page; Dashboard, Reports and Settings replace the last "P" placeholders.
+- A banner says the backend is waking up while any request has waited more than 5 s (free-tier cold starts).
+- Also fixed: missing error states on the run launcher and the suite-runs list.
 
 ---
 

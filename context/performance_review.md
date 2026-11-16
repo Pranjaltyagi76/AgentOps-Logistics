@@ -85,7 +85,8 @@ Checklist
 - [x] Token usage per LLM run recorded (from Phase 6; stored in `runs.usage_json` and per turn in the trace)
 - [ ] Gemini 429s in the period counted; throttle adjusted if needed
 - [ ] DB size and trace growth checked against budget; retention policy applied if > 50%
-- [ ] Frontend bundle size checked after adding dependencies
+- [x] Frontend bundle size checked after adding dependencies (2026-11-16, Phase 9: initial JS 214.6 KB gzip,
+  ScenarioEditor chunk 139.7 KB loaded on demand)
 - [ ] Regressions vs previous review explained or fixed
 - [ ] Log entry added to §7
 

@@ -93,6 +93,7 @@ uv sync
 Copy-Item .env.example .env     # then edit values; add GEMINI_API_KEY yourself (Phase 6)
 uv run alembic upgrade head
 uv run python ..\scripts\seed_db.py         # loads data/scenarios (safe to re-run)
+uv run python ..\scripts\seed_demo.py       # optional: labelled demo suite runs (rule-based, no LLM)
 uv run python ..\scripts\create_owner.py    # reads OWNER_EMAIL / OWNER_PASSWORD from env or .env
 uv run uvicorn app.main:app --reload --port 8000
 ```
@@ -189,7 +190,8 @@ Commit only `.env.example` files with placeholders.
    (Single instance, so running migrations at start is acceptable.)
 4. Health check path: `/api/v1/health`.
 5. Set env vars from §3 (`APP_ENV=production`, secrets as secret values).
-6. One-time: run `python ../scripts/seed_db.py` and `python ../scripts/create_owner.py` from a Render shell (working dir `backend`), or run them locally with `DATABASE_URL` pointed at Neon.
+6. One-time: run `python ../scripts/seed_db.py`, `python ../scripts/seed_demo.py` (labelled demo data for the
+   public dashboard) and `python ../scripts/create_owner.py` from a Render shell (working dir `backend`), or run them locally with `DATABASE_URL` pointed at Neon.
 
 **Free-tier realities (verify):** instance spins down after ~15 min without traffic; cold start can take up to about a minute; limited RAM (~512 MB). Consequences:
 - Frontend shows a "waking up backend…" banner and retries.
