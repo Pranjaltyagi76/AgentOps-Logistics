@@ -357,6 +357,8 @@ Acceptance
   (6 × Gemini 503/504 overload, 4 × the free tier's **20 requests per day** limit for this model). The platform
   behaved as designed (all marked platform errors, all 10 pairs "not comparable" against v1, no false regressions),
   but a full Gemini suite needs ~40 requests, more than one free-tier day allows. See benchmark.md §15.
+  Retried on 2026-11-16 with the 4-scenario `llm-4` suite: Gemini answered in 15–39 s per call and all 4 runs
+  failed on provider timeouts (one misclassified as an agent error, since fixed). Still no Gemini result.
 
 Results: backend 354 tests (+2 opt-in `llm`), frontend 26 tests; lint, typecheck and build clean.
 

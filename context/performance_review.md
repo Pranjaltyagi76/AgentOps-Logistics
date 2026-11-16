@@ -108,6 +108,7 @@ Actions:            <issues created / fixes made>
 | 1 | 2026-11-10 | 4 | local (Windows, Postgres 16.2 portable, in-process client) | All measured API and run budgets met; see Review 1 |
 | 2 | 2026-11-12 | 6 | local + Gemini free tier (`gemini-3.5-flash`) | First Gemini runs: ~11 s, ~15k input tokens per run; one slow-provider episode; see Review 2 |
 | 3 | 2026-11-12 | 8 | local + Gemini free tier | Rule-based suites in 3–7 s; Gemini suite blocked by overload and a 20-requests-per-day free quota; see Review 3 |
+| 4 | 2026-11-16 | 8 (follow-up) | local + Gemini free tier | `llm-4` Gemini suite: calls took 15–39 s, all 4 runs failed on provider timeouts; see Review 4 |
 
 ### Review 1 — 2026-11-10 — after Phase 4
 Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
@@ -178,6 +179,24 @@ Findings:           The Gemini **free tier allows 20 generate requests per day**
 Actions:            daily-quota 429s are no longer retried. `LLM_DAILY_RUN_CAP` default lowered 50 → 4
                     (2026-11-16), so a Gemini suite now needs ≤ 4 scenarios per day; use a model or tier with a
                     higher daily limit for the full MVP suite. No Gemini suite metrics exist yet.
+
+### Review 4 — 2026-11-16 — Gemini `llm-4` suite
+Suite runs `8537de92` (rule-based-v1, 4/4 PASS, 6.3 s) and `5b03ee9a` (gemini-flash-v1, 369 s, no usable result).
+
+| Measurement | 2026-11-12 | 2026-11-16 |
+|---|---|---|
+| Gemini call latency (agent turns) | 1.5–5.2 s | 14.9–39.0 s |
+| Runs finished by the agent | 2 of 2 | 0 of 4 (3 × 504 deadline, 1 × read timeout) |
+| Input tokens per run (mean, where reported) | ~15k | 6.9k (runs stopped early) |
+
+Findings:           at 15–40 s per call, a 4-step Gemini run cannot fit the 20 s request timeout and 90 s run limit;
+                    the free tier's latency varies by an order of magnitude between days. The SDK raises timeouts
+                    from its own httpx fork (`httpx2`), which the adapter missed, so one timeout was scored as an
+                    agent failure.
+Actions:            `httpx2` timeouts and transport errors now map to `provider_unavailable` (tested). Not changed:
+                    the time limits (raising them would make slow-provider days look like slow agents). Gemini
+                    benchmark results stay pending until a day with normal latency; check the Settings page for
+                    remaining quota before launching.
 
 ## 8. Known hotspots and optimisation playbook
 
