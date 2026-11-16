@@ -92,3 +92,54 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker image (build, boot, smoke test, restart)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: agentops
+          POSTGRES_PASSWORD: agentops_ci
+          POSTGRES_DB: agentops
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U agentops -d agentops"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the backend image (context = repository root)
+        run: docker build -f backend/Dockerfile -t agentops-api .
+      - name: The image contains no .env file
+        run: docker run --rm --entrypoint sh agentops-api -c '! ls -a /app/backend /app | grep -x ".env"'
+      - name: Boot it (migrate, seed, create owner, serve)
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL=postgresql+psycopg://agentops:agentops_ci@localhost:5432/agentops \
+            -e JWT_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" \
+            -e CORS_ORIGINS=http://localhost:5173 \
+            -e GIT_SHA=${{ github.sha }} \
+            -e OWNER_EMAIL=ci-owner@example.com \
+            -e OWNER_PASSWORD=ci-only-owner-password-123 \
+            agentops-api
+      - name: Smoke test
+        run: |
+          set -o pipefail
+          python3 scripts/smoke_test.py --api http://localhost:8000 \
+            --expect-sha ${{ github.sha }} --wake-timeout 180 | tee smoke.txt
+          grep -q "^RUN_ID=" smoke.txt
+      - name: Restart, then the run, trace and score are still there
+        run: |
+          docker restart api
+          python3 scripts/smoke_test.py --api http://localhost:8000 --wake-timeout 180 \
+            --after-restart "$(sed -n 's/^RUN_ID=//p' smoke.txt)"
+      - name: Memory use (Render free instances have 512 MB)
+        run: docker stats --no-stream --format "{{.Name}} {{.MemUsage}}" api
+      - name: Container logs
+        if: always()
+        run: docker logs api 2>&1 | tail -n 80
+

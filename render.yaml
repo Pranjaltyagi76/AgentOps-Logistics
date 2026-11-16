@@ -1,0 +1,41 @@
+# Render Blueprint (Phase 11): the backend as one free Docker web service.
+# Secrets marked `sync: false` are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: agentops-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass  # deploy main only after GitHub checks (CI) pass
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL  # Neon pooled connection string (postgresql+psycopg://...?sslmode=require)
+        sync: false
+      - key: MIGRATION_DATABASE_URL  # Neon direct (non-pooled) connection string
+        sync: false
+      - key: CORS_ORIGINS  # the Vercel production URL, e.g. https://agentops-logistics.vercel.app
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OWNER_EMAIL
+        sync: false
+      - key: OWNER_PASSWORD  # first boot only: delete it after the owner account exists
+        sync: false
+      - key: TRUSTED_PROXY_HOPS  # Render's edge appends the client IP to X-Forwarded-For
+        value: "1"
+      - key: LLM_DAILY_RUN_CAP
+        value: "4"
+      - key: LLM_JUDGE_DAILY_CAP
+        value: "4"
+      - key: MAX_CONCURRENT_RUNS
+        value: "2"
+      - key: SOP_RETRIEVAL
+        value: lexical
+      - key: LOG_LEVEL
+        value: INFO

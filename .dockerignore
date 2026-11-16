@@ -1,0 +1,17 @@
+# Build context is the repository root (see backend/Dockerfile); send only what the image needs.
+**/.env
+**/.env.*
+!**/.env.example
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.ruff_cache
+.git
+.github
+.claude
+frontend
+context
+backend/.venv
+backend/tests
+docker-compose.yml
+/*.md
