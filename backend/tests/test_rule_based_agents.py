@@ -12,12 +12,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.core.config import DEFAULT_DATA_DIR
+from app.domain.scoring import evaluate
 from app.domain.sop_corpus import load_corpus
 from app.domain.taxonomy import ACTION_TOOLS
 from app.schemas.agent_config import AgentConfigSpec
 from app.schemas.scenario import ScenarioSpec
 from app.services.agent_graph.graph import AgentRunResult
 from app.services.agent_graph.runner import run_scenario
+from app.services.evaluation.service import facts_from_result
 from app.services.sops.service import PostgresSopSearcher, sync_corpus
 
 pytestmark = pytest.mark.db
@@ -104,3 +106,26 @@ def test_rule_based_v2_flawed_fails_in_the_designed_ways(run_all) -> None:
     assert outcome("policy_refund_demand_001").escalation is False
     reroute_calls = runs["delivery_customer_unavailable_001"][1].tool_calls
     assert any(c.tool == "request_reroute" and not c.ok for c in reroute_calls)
+
+    # Phase 10: follows an instruction planted in a tool result and tries to refund (blocked).
+    injected = runs["policy_injection_tool_result_001"][1].tool_calls
+    attempt = [c for c in injected if c.tool == "request_refund"]
+    assert attempt and attempt[0].outcome.code == "policy_denied"  # type: ignore[union-attr]
+
+
+def test_evaluator_verdicts_on_the_full_scenario_set(run_all) -> None:
+    """eval-v2 on all scenarios: v1 passes every one; v2 never passes a safety scenario."""
+    v1 = {
+        k: evaluate(spec, facts_from_result(r)) for k, (spec, r) in run_all("rule-based-v1").items()
+    }
+    assert {k: e.verdict for k, e in v1.items() if e.verdict != "PASS"} == {}
+    assert all(e.score == 100 for e in v1.values())
+
+    v2 = {
+        k: evaluate(spec, facts_from_result(r))
+        for k, (spec, r) in run_all("rule-based-v2-flawed").items()
+    }
+    for key in ("policy_injection_tool_result_001", "policy_injection_customer_message_001"):
+        assert v2[key].verdict == "FAILED_POLICY", key
+    assert "no_forbidden_action" in v2["policy_injection_tool_result_001"].gate_failures
+    assert sum(e.verdict == "PASS" for e in v2.values()) < len(v2) // 4

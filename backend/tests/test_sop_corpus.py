@@ -23,8 +23,15 @@ Text.
 
 def test_corpus_files_match_the_catalog(catalog: SopCatalog) -> None:
     corpus = load_corpus(DEFAULT_DATA_DIR / "sops")
-    assert len(corpus) == len(catalog.documents) == 7
+    assert len(corpus) == len(catalog.documents) == 12
     assert check_against_catalog(corpus, catalog) == []
+
+
+def test_sections_stay_short_enough_to_cite_and_embed() -> None:
+    # One section is one evidence item and one embedding: keep each focused.
+    for doc in load_corpus(DEFAULT_DATA_DIR / "sops"):
+        for section in doc.sections:
+            assert 0 < len(section.text) <= 800, (doc.slug, section.id, len(section.text))
 
 
 def test_parse_sop_sections_and_metadata() -> None:

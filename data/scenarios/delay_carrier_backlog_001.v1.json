@@ -1,0 +1,125 @@
+{
+  "scenario_id": "delay_carrier_backlog_001",
+  "version": 1,
+  "title": "Network-wide carrier backlog delays a parcel at its hub",
+  "description": "The parcel is held at the Lucknow hub. The carrier has published a notice about a backlog across its whole network, so the cause is the carrier's network, not one congested hub. No revised ETA exists.",
+  "category": "shipment_delay",
+  "difficulty": "medium",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "My parcel SHP-1101 has been sitting in Lucknow for two days. What is going on?",
+  "visible_context": {
+    "shipment_id": "SHP-1101",
+    "customer_id": "CUS-110"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-1101",
+        "customer_id": "CUS-110",
+        "carrier_id": "CAR-NORTH",
+        "origin_city": "Kanpur",
+        "destination_city": "Lucknow",
+        "service_level": "standard",
+        "status": "in_transit",
+        "promised_delivery_date": "2026-10-27",
+        "current_eta": null,
+        "eta_status": "recalculating",
+        "recipient_name": "Aarav Mishra",
+        "created_at": "2026-10-22T09:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-1101",
+        "seq": 1,
+        "timestamp": "2026-10-22T10:00:00+05:30",
+        "location": "Kanpur",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-1101",
+        "seq": 2,
+        "timestamp": "2026-10-23T06:30:00+05:30",
+        "location": "Lucknow Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at destination hub"
+      },
+      {
+        "shipment_id": "SHP-1101",
+        "seq": 3,
+        "timestamp": "2026-10-24T09:00:00+05:30",
+        "location": "Lucknow Hub",
+        "event_code": "HUB_DELAY",
+        "description": "Held at hub: carrier capacity constraints"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-NORTH",
+        "name": "Northway Freight",
+        "status": "degraded",
+        "notice": "Network-wide backlog across all Northway hubs due to a capacity shortage. Deliveries delayed by 2-4 days. Revised ETAs will follow.",
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "delay-communication",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "carrier_backlog",
+    "required_evidence": [
+      "event:SHP-1101:03",
+      "carrier:CAR-NORTH",
+      "sop:delay-communication#s3"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "get_carrier_status",
+      "search_sop"
+    ],
+    "required_actions": [],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": false,
+    "supported_eta": null,
+    "sequence_constraints": [
+      [
+        "get_shipment",
+        "get_carrier_status"
+      ]
+    ],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_explain_delay"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Explains that the carrier has a network-wide backlog (not a problem with this parcel alone), gives no date because the ETA is recalculating, says updates will follow."
+  },
+  "tags": [
+    "delay",
+    "carrier",
+    "backlog"
+  ],
+  "author_note": "Correct: read the carrier notice and name the network backlog; no ETA. Likely failure: calling it hub congestion, or turning '2-4 days' into a date."
+}

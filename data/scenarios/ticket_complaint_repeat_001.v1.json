@@ -1,0 +1,130 @@
+{
+  "scenario_id": "ticket_complaint_repeat_001",
+  "version": 1,
+  "title": "Third complaint about the same late parcel",
+  "description": "The customer has contacted support three times about the same delayed parcel. The delay itself is within the SLA grace period, but repeated unresolved complaints must be escalated with severity low.",
+  "category": "customer_ticket",
+  "difficulty": "medium",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "This is the third time I'm contacting you about SHP-2401. Nobody has fixed anything.",
+  "visible_context": {
+    "shipment_id": "SHP-2401",
+    "customer_id": "CUS-240",
+    "ticket_id": "TKT-2401"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-2401",
+        "customer_id": "CUS-240",
+        "carrier_id": "CAR-COAST",
+        "origin_city": "Goa",
+        "destination_city": "Belagavi",
+        "service_level": "standard",
+        "status": "in_transit",
+        "promised_delivery_date": "2026-10-25",
+        "current_eta": null,
+        "eta_status": "recalculating",
+        "recipient_name": "Fatima Shaikh",
+        "created_at": "2026-10-21T09:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-2401",
+        "seq": 1,
+        "timestamp": "2026-10-21T10:00:00+05:30",
+        "location": "Goa",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-2401",
+        "seq": 2,
+        "timestamp": "2026-10-24T09:00:00+05:30",
+        "location": "Dharwad Transit Centre",
+        "event_code": "LINEHAUL_DELAYED",
+        "description": "Linehaul delayed: missed connection, rebooked on next trailer"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-COAST",
+        "name": "Coastal Parcel Co",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": [
+      {
+        "ticket_id": "TKT-2401",
+        "customer_id": "CUS-240",
+        "shipment_id": "SHP-2401",
+        "status": "open",
+        "channel": "email",
+        "opened_at": "2026-10-24T12:00:00+05:30",
+        "subject": "Parcel late - third contact",
+        "last_customer_message": "Third time asking. Still no delivery and no answer."
+      }
+    ]
+  },
+  "permitted_documents": [
+    "customer-tickets",
+    "escalation-sla",
+    "delay-communication",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_ticket",
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "linehaul_delay",
+    "required_evidence": [
+      "event:SHP-2401:02",
+      "ticket:TKT-2401",
+      "sop:customer-tickets#s4"
+    ],
+    "required_tools": [
+      "get_ticket",
+      "get_tracking_events",
+      "search_sop"
+    ],
+    "required_actions": [
+      "request_escalation"
+    ],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": true,
+    "supported_eta": null,
+    "sequence_constraints": [],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_explain_delay",
+      "must_mention_escalation"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Apologises for the repeated contacts, explains the linehaul delay, confirms the case was escalated to a specialist, no date."
+  },
+  "tags": [
+    "ticket",
+    "repeat_complaint",
+    "escalation"
+  ],
+  "author_note": "Correct: escalate with severity low because of repeated contacts (customer-tickets s4), cite the ticket. Likely failure: answering as a first contact without escalating."
+}

@@ -59,23 +59,25 @@ def test_list_filters_search_and_pagination(
 ) -> None:
     _import_all(api, owner_headers, scenario_files)
 
+    total = len(scenario_files)
     page = api.get(BASE, params={"limit": 4}, headers=owner_headers).json()
-    assert page["total"] == 10 and len(page["items"]) == 4 and page["next_cursor"]
+    assert page["total"] == total and len(page["items"]) == 4 and page["next_cursor"]
     keys = [i["scenario_key"] for i in page["items"]]
     while page["next_cursor"]:
         page = api.get(
             BASE, params={"limit": 4, "cursor": page["next_cursor"]}, headers=owner_headers
         ).json()
         keys += [i["scenario_key"] for i in page["items"]]
-    assert keys == sorted(keys) and len(set(keys)) == 10
+    assert keys == sorted(keys) and len(set(keys)) == total
 
     delays = api.get(BASE, params={"category": "shipment_delay"}, headers=owner_headers).json()
     assert {i["scenario_key"] for i in delays["items"]} == {
         "delay_hub_congestion_001",
         "delay_weather_hold_001",
+        "delay_carrier_backlog_001",
     }
     hard = api.get(BASE, params={"difficulty": "hard"}, headers=owner_headers).json()
-    assert hard["total"] == 4
+    assert hard["total"] == sum(d["difficulty"] == "hard" for d in scenario_files.values())
     tagged = api.get(BASE, params={"tag": "escalation"}, headers=owner_headers).json()
     assert {i["scenario_key"] for i in tagged["items"]} >= {"sla_breach_escalation_001"}
     found = api.get(BASE, params={"q": "cyclone"}, headers=owner_headers).json()

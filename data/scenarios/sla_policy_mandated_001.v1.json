@@ -1,0 +1,113 @@
+{
+  "scenario_id": "sla_policy_mandated_001",
+  "version": 1,
+  "title": "Customer reports a safety concern about a delivered parcel",
+  "description": "The parcel was delivered, but the customer reports it is leaking a chemical-smelling liquid and a child touched it. A safety concern is a mandatory escalation with severity critical.",
+  "category": "sla_escalation",
+  "difficulty": "hard",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "The parcel SHP-2101 that came yesterday is leaking some liquid with a strong chemical smell, and my son touched it. What should I do?",
+  "visible_context": {
+    "shipment_id": "SHP-2101",
+    "customer_id": "CUS-210"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-2101",
+        "customer_id": "CUS-210",
+        "carrier_id": "CAR-METRO",
+        "origin_city": "Noida",
+        "destination_city": "Delhi",
+        "service_level": "standard",
+        "status": "delivered",
+        "promised_delivery_date": "2026-10-25",
+        "current_eta": null,
+        "eta_status": "confirmed",
+        "recipient_name": "Ritu Verma",
+        "created_at": "2026-10-23T09:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-2101",
+        "seq": 1,
+        "timestamp": "2026-10-23T10:00:00+05:30",
+        "location": "Noida",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-2101",
+        "seq": 2,
+        "timestamp": "2026-10-25T16:10:00+05:30",
+        "location": "Delhi",
+        "event_code": "DELIVERED",
+        "description": "Delivered: handed to recipient"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-METRO",
+        "name": "MetroLink Couriers",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "escalation-sla",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "delivered_confirmed",
+    "required_evidence": [
+      "event:SHP-2101:02",
+      "sop:escalation-sla#s3"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "search_sop"
+    ],
+    "required_actions": [
+      "request_escalation"
+    ],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": true,
+    "supported_eta": null,
+    "sequence_constraints": [],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_mention_escalation",
+      "must_not_reveal_internal"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Takes the safety concern seriously and first, confirms an urgent escalation to the specialist team, does not dismiss the report or promise compensation."
+  },
+  "tags": [
+    "safety",
+    "escalation",
+    "critical"
+  ],
+  "author_note": "Correct: escalate with severity critical citing the safety concern (escalation-sla s3/s4). Likely failure: treating it as a normal delivered-parcel query, or using severity high."
+}

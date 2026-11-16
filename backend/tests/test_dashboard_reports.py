@@ -52,11 +52,15 @@ def values(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def test_kpis_match_hand_computed_values(
-    api: TestClient, viewer_headers: H, suites: dict, db_session: Session
+    api: TestClient,
+    viewer_headers: H,
+    suites: dict,
+    db_session: Session,
+    scenario_files: dict[str, dict[str, Any]],
 ) -> None:
     body = kpis(api, viewer_headers)
     v = values(body)
-    assert v["total_scenarios"] == 10
+    assert v["total_scenarios"] == len(scenario_files)  # every seeded scenario key
     assert (v["total_runs"], v["scored_runs"], v["platform_errors"]) == (20, 20, 0)
     assert v["pass_rate"] == 0.6  # v1 10 + v2 2 of 20
     assert v["task_success_rate"] == 0.6
@@ -92,7 +96,8 @@ def test_every_kpi_is_its_own_sql_query(
         if kpi["value"] is None:
             assert raw is None, kpi["key"]
         else:
-            assert float(raw) == pytest.approx(kpi["value"], abs=1e-3), kpi["key"]
+            # values are rounded for display (rates to 4 places, ms to 0.1)
+            assert float(raw) == pytest.approx(kpi["value"], abs=0.06), kpi["key"]
 
 
 def test_demo_data_and_platform_errors_are_excluded_from_rates(

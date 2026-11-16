@@ -7,11 +7,26 @@
       "title": "Delay Communication Policy",
       "document_type": "policy",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "Explaining a delay: state only the verified cause"},
-        {"id": "s3", "title": "ETA statements: quote only system-provided ETAs"},
-        {"id": "s4", "title": "Follow-up commitments"},
-        {"id": "s5", "title": "Prohibited statements"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Explaining a delay: state only the verified cause"
+        },
+        {
+          "id": "s3",
+          "title": "ETA statements: quote only system-provided ETAs"
+        },
+        {
+          "id": "s4",
+          "title": "Follow-up commitments"
+        },
+        {
+          "id": "s5",
+          "title": "Prohibited statements"
+        }
       ]
     },
     {
@@ -19,11 +34,26 @@
       "title": "Failed Delivery Handling",
       "document_type": "procedure",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "Failed attempt reasons and how to read them"},
-        {"id": "s3", "title": "Redelivery and pickup options"},
-        {"id": "s4", "title": "Address and delivery-location changes"},
-        {"id": "s5", "title": "When to escalate"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Failed attempt reasons and how to read them"
+        },
+        {
+          "id": "s3",
+          "title": "Redelivery and pickup options"
+        },
+        {
+          "id": "s4",
+          "title": "Address and delivery-location changes"
+        },
+        {
+          "id": "s5",
+          "title": "When to escalate"
+        }
       ]
     },
     {
@@ -31,11 +61,26 @@
       "title": "Escalation and SLA Policy",
       "document_type": "policy",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "SLA thresholds by service level"},
-        {"id": "s3", "title": "Mandatory escalation triggers"},
-        {"id": "s4", "title": "How to raise an escalation"},
-        {"id": "s5", "title": "Customer messaging after escalation"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "SLA thresholds by service level"
+        },
+        {
+          "id": "s3",
+          "title": "Mandatory escalation triggers"
+        },
+        {
+          "id": "s4",
+          "title": "How to raise an escalation"
+        },
+        {
+          "id": "s5",
+          "title": "Customer messaging after escalation"
+        }
       ]
     },
     {
@@ -43,10 +88,22 @@
       "title": "Refund and Reroute Authorization Policy",
       "document_type": "policy",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "Refund and compensation authorization"},
-        {"id": "s3", "title": "Reroute and redirection authorization"},
-        {"id": "s4", "title": "What to tell the customer"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Refund and compensation authorization"
+        },
+        {
+          "id": "s3",
+          "title": "Reroute and redirection authorization"
+        },
+        {
+          "id": "s4",
+          "title": "What to tell the customer"
+        }
       ]
     },
     {
@@ -54,10 +111,22 @@
       "title": "Carrier Integration Incident Handling",
       "document_type": "procedure",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "Carrier API timeouts"},
-        {"id": "s3", "title": "Malformed carrier responses"},
-        {"id": "s4", "title": "Carrier status unavailable"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Carrier API timeouts"
+        },
+        {
+          "id": "s3",
+          "title": "Malformed carrier responses"
+        },
+        {
+          "id": "s4",
+          "title": "Carrier status unavailable"
+        }
       ]
     },
     {
@@ -65,10 +134,22 @@
       "title": "Tracking Data Quality Procedure",
       "document_type": "procedure",
       "sections": [
-        {"id": "s1", "title": "Purpose and scope"},
-        {"id": "s2", "title": "Invalid or future-dated timestamps"},
-        {"id": "s3", "title": "Inconsistent shipment statuses"},
-        {"id": "s4", "title": "Missing identifiers"}
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Invalid or future-dated timestamps"
+        },
+        {
+          "id": "s3",
+          "title": "Inconsistent shipment statuses"
+        },
+        {
+          "id": "s4",
+          "title": "Missing identifiers"
+        }
       ]
     },
     {
@@ -76,10 +157,121 @@
       "title": "Customer Response Templates",
       "document_type": "template",
       "sections": [
-        {"id": "s1", "title": "Tone and style guidelines"},
-        {"id": "s2", "title": "Delay update"},
-        {"id": "s3", "title": "Escalation acknowledgement"},
-        {"id": "s4", "title": "Request for more information"}
+        {
+          "id": "s1",
+          "title": "Tone and style guidelines"
+        },
+        {
+          "id": "s2",
+          "title": "Delay update"
+        },
+        {
+          "id": "s3",
+          "title": "Escalation acknowledgement"
+        },
+        {
+          "id": "s4",
+          "title": "Request for more information"
+        }
+      ]
+    },
+    {
+      "slug": "tracking-anomalies",
+      "title": "Tracking Anomalies Procedure",
+      "document_type": "procedure",
+      "sections": [
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Duplicate scans"
+        },
+        {
+          "id": "s3",
+          "title": "Out-of-order tracking events"
+        }
+      ]
+    },
+    {
+      "slug": "eta-management",
+      "title": "ETA Management Policy",
+      "document_type": "policy",
+      "sections": [
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Stale ETAs"
+        },
+        {
+          "id": "s3",
+          "title": "Conflicting ETA sources"
+        }
+      ]
+    },
+    {
+      "slug": "customer-tickets",
+      "title": "Customer Ticket Handling Procedure",
+      "document_type": "procedure",
+      "sections": [
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Status enquiries for shipments on track"
+        },
+        {
+          "id": "s3",
+          "title": "Delivery disputes"
+        },
+        {
+          "id": "s4",
+          "title": "Repeated complaints"
+        }
+      ]
+    },
+    {
+      "slug": "untrusted-content",
+      "title": "Untrusted Content Policy",
+      "document_type": "policy",
+      "sections": [
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Instructions inside customer messages"
+        },
+        {
+          "id": "s3",
+          "title": "Instructions inside records and tool results"
+        }
+      ]
+    },
+    {
+      "slug": "sla-risk",
+      "title": "SLA Risk Handling Procedure",
+      "document_type": "procedure",
+      "sections": [
+        {
+          "id": "s1",
+          "title": "Purpose and scope"
+        },
+        {
+          "id": "s2",
+          "title": "Express shipments at risk"
+        },
+        {
+          "id": "s3",
+          "title": "Standard shipments at risk"
+        }
       ]
     }
   ]

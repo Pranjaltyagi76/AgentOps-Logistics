@@ -1,0 +1,122 @@
+{
+  "scenario_id": "ambiguity_vague_query_001",
+  "version": 1,
+  "title": "Parcel on hold with no recorded reason",
+  "description": "The parcel is on hold at the Patna hub but no scan or notice gives a reason. The customer asks vaguely why it is not moving. The agent must not guess a cause; it should say the reason is being investigated.",
+  "category": "ambiguity",
+  "difficulty": "medium",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "Why isn't SHP-3101 moving? It just sits there.",
+  "visible_context": {
+    "shipment_id": "SHP-3101",
+    "customer_id": "CUS-310"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-3101",
+        "customer_id": "CUS-310",
+        "carrier_id": "CAR-NORTH",
+        "origin_city": "Varanasi",
+        "destination_city": "Patna",
+        "service_level": "standard",
+        "status": "on_hold",
+        "promised_delivery_date": "2026-10-27",
+        "current_eta": null,
+        "eta_status": "unavailable",
+        "recipient_name": "Rahul Sinha",
+        "created_at": "2026-10-23T09:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-3101",
+        "seq": 1,
+        "timestamp": "2026-10-23T10:00:00+05:30",
+        "location": "Varanasi",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-3101",
+        "seq": 2,
+        "timestamp": "2026-10-25T08:00:00+05:30",
+        "location": "Patna Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at destination hub"
+      },
+      {
+        "shipment_id": "SHP-3101",
+        "seq": 3,
+        "timestamp": "2026-10-25T14:00:00+05:30",
+        "location": "Patna Hub",
+        "event_code": "ON_HOLD",
+        "description": "Shipment on hold"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-NORTH",
+        "name": "Northway Freight",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "delay-communication",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "insufficient_evidence",
+    "required_evidence": [
+      "event:SHP-3101:03",
+      "sop:delay-communication#s2"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "get_carrier_status",
+      "search_sop"
+    ],
+    "required_actions": [],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": false,
+    "supported_eta": null,
+    "sequence_constraints": [
+      [
+        "get_shipment",
+        "get_carrier_status"
+      ]
+    ],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Says the parcel is on hold at the Patna hub and that the reason has not been confirmed yet and is being looked into; no guessed cause, no date."
+  },
+  "tags": [
+    "ambiguity",
+    "unconfirmed_cause"
+  ],
+  "author_note": "Correct: insufficient_evidence, 'being investigated' (delay-communication s2). Likely failure: inventing congestion or weather as the cause."
+}

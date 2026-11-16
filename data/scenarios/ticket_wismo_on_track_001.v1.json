@@ -1,0 +1,109 @@
+{
+  "scenario_id": "ticket_wismo_on_track_001",
+  "version": 1,
+  "title": "Where-is-my-order for a parcel that is on schedule",
+  "description": "A plain status enquiry. The parcel is moving as planned and the shipment record has a system ETA that may be shared.",
+  "category": "customer_ticket",
+  "difficulty": "easy",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "Hi, just checking where my parcel SHP-2201 is?",
+  "visible_context": {
+    "shipment_id": "SHP-2201",
+    "customer_id": "CUS-220"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-2201",
+        "customer_id": "CUS-220",
+        "carrier_id": "CAR-SWIFT",
+        "origin_city": "Bengaluru",
+        "destination_city": "Mysuru",
+        "service_level": "standard",
+        "status": "in_transit",
+        "promised_delivery_date": "2026-10-27",
+        "current_eta": "2026-10-27",
+        "eta_status": "confirmed",
+        "recipient_name": "Deepa Rao",
+        "created_at": "2026-10-25T08:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-2201",
+        "seq": 1,
+        "timestamp": "2026-10-25T09:00:00+05:30",
+        "location": "Bengaluru",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-2201",
+        "seq": 2,
+        "timestamp": "2026-10-26T07:30:00+05:30",
+        "location": "Mysuru Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at destination hub"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-SWIFT",
+        "name": "SwiftLine Express",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "customer-tickets",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "in_transit_on_schedule",
+    "required_evidence": [
+      "event:SHP-2201:02",
+      "sop:customer-tickets#s2"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "search_sop"
+    ],
+    "required_actions": [],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": false,
+    "supported_eta": "2026-10-27",
+    "sequence_constraints": [],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_explain_delay"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Brief and friendly: latest scan location, the confirmed ETA, no unnecessary escalation."
+  },
+  "tags": [
+    "ticket",
+    "wismo"
+  ],
+  "author_note": "Correct: share the latest scan and the confirmed ETA. Likely failure: inventing a problem or escalating an on-track parcel."
+}

@@ -1,9 +1,11 @@
+from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 
 from app.domain.sop_catalog import SopCatalog
+from app.domain.taxonomy import Category
 from app.schemas.scenario import ScenarioSpec, validate_scenario
 
 Factory = Callable[..., dict[str, Any]]
@@ -17,7 +19,7 @@ def _errors(data: dict[str, Any], catalog: SopCatalog) -> list[str]:
 def test_all_seed_scenarios_are_valid(
     scenario_files: dict[str, dict[str, Any]], catalog: SopCatalog
 ) -> None:
-    assert len(scenario_files) >= 10
+    assert len(scenario_files) >= 30  # Phase 10 target (FR-02.6)
     for name, data in scenario_files.items():
         spec, report = validate_scenario(data, catalog)
         assert spec is not None, (name, report.errors)
@@ -39,6 +41,14 @@ def test_seed_scenarios_cover_every_mvp_category(
         "data_quality",
         "ambiguity",
     }
+
+
+def test_every_category_has_at_least_three_scenarios(
+    scenario_files: dict[str, dict[str, Any]],
+) -> None:
+    counts = Counter(data["category"] for data in scenario_files.values())
+    assert set(counts) == {c.value for c in Category}
+    assert min(counts.values()) >= 3, counts
 
 
 def test_future_dated_event_is_a_warning_not_an_error(

@@ -1,0 +1,127 @@
+{
+  "scenario_id": "tracking_out_of_order_001",
+  "version": 1,
+  "title": "A late-arriving scan makes tracking look like the parcel went backwards",
+  "description": "The departure scan from Bhopal arrived late and is listed after the Nagpur arrival. Ordered by timestamp, the parcel is at Nagpur. The ETA is a system estimate.",
+  "category": "tracking_anomaly",
+  "difficulty": "medium",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "Why does SHP-1301 show Bhopal after Nagpur? Is it going the wrong way?",
+  "visible_context": {
+    "shipment_id": "SHP-1301",
+    "customer_id": "CUS-130"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-1301",
+        "customer_id": "CUS-130",
+        "carrier_id": "CAR-NORTH",
+        "origin_city": "Indore",
+        "destination_city": "Nagpur",
+        "service_level": "standard",
+        "status": "in_transit",
+        "promised_delivery_date": "2026-10-27",
+        "current_eta": "2026-10-27",
+        "eta_status": "estimated",
+        "recipient_name": "Rohan Deshpande",
+        "created_at": "2026-10-23T10:00:00+05:30"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-1301",
+        "seq": 1,
+        "timestamp": "2026-10-23T11:00:00+05:30",
+        "location": "Indore",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-1301",
+        "seq": 2,
+        "timestamp": "2026-10-24T20:00:00+05:30",
+        "location": "Bhopal Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at transit hub"
+      },
+      {
+        "shipment_id": "SHP-1301",
+        "seq": 3,
+        "timestamp": "2026-10-26T06:00:00+05:30",
+        "location": "Nagpur Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at destination hub"
+      },
+      {
+        "shipment_id": "SHP-1301",
+        "seq": 4,
+        "timestamp": "2026-10-25T09:00:00+05:30",
+        "location": "Bhopal Hub",
+        "event_code": "DEPARTED_HUB",
+        "description": "Departed transit hub"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-NORTH",
+        "name": "Northway Freight",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "tracking-anomalies",
+    "delay-communication",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "out_of_order_events",
+    "required_evidence": [
+      "event:SHP-1301:03",
+      "event:SHP-1301:04",
+      "sop:tracking-anomalies#s3"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "search_sop"
+    ],
+    "required_actions": [],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": false,
+    "supported_eta": "2026-10-27",
+    "sequence_constraints": [],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_explain_delay"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Explains that one update was recorded late, so tracking is out of order; the parcel is at Nagpur. Shares the system ETA."
+  },
+  "tags": [
+    "tracking",
+    "out_of_order"
+  ],
+  "author_note": "Correct: order scans by timestamp; latest position is Nagpur. Likely failure: reporting Bhopal as the current location or calling it a misroute."
+}

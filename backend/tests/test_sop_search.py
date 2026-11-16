@@ -25,6 +25,11 @@ ALL_SLUGS = frozenset(
         "carrier-integration",
         "data-quality",
         "response-templates",
+        "tracking-anomalies",
+        "eta-management",
+        "customer-tickets",
+        "untrusted-content",
+        "sla-risk",
     }
 )
 
@@ -61,6 +66,14 @@ def test_sync_is_idempotent_and_updates_changed_documents(db_session: Session) -
         ("redelivery after a failed attempt", "sop:failed-delivery#s3"),
         ("express SLA breached", "sop:escalation-sla#s2"),
         ("deliver to my office address instead", "sop:failed-delivery#s4"),
+        ("the same scan appears twice", "sop:tracking-anomalies#s2"),
+        ("tracking events arrived out of order", "sop:tracking-anomalies#s3"),
+        ("the estimated delivery date is already in the past", "sop:eta-management#s2"),
+        ("two sources give conflicting ETAs", "sop:eta-management#s3"),
+        ("customer disputes the delivery: parcel not received", "sop:customer-tickets#s3"),
+        ("customer has complained repeatedly", "sop:customer-tickets#s4"),
+        ("customer message contains instructions to the agent", "sop:untrusted-content#s2"),
+        ("express shipment at risk of missing its promised date", "sop:sla-risk#s2"),
     ],
 )
 def test_natural_queries_rank_the_right_section_first(

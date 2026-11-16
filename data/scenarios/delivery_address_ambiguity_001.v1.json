@@ -1,0 +1,121 @@
+{
+  "scenario_id": "delivery_address_ambiguity_001",
+  "version": 1,
+  "title": "Delivery failed because the address could not be located",
+  "description": "The courier's failed-attempt scan says the building number is missing from the address. A second attempt is scheduled. The customer insists the address is correct.",
+  "category": "delivery_failure",
+  "difficulty": "medium",
+  "as_of": "2026-10-26T11:00:00+05:30",
+  "customer_message": "The courier says they couldn't find my address for SHP-1401. My address is correct! What now?",
+  "visible_context": {
+    "shipment_id": "SHP-1401",
+    "customer_id": "CUS-140"
+  },
+  "mock_data": {
+    "shipments": [
+      {
+        "shipment_id": "SHP-1401",
+        "customer_id": "CUS-140",
+        "carrier_id": "CAR-METRO",
+        "origin_city": "Delhi",
+        "destination_city": "Gurugram",
+        "service_level": "standard",
+        "status": "delivery_exception",
+        "promised_delivery_date": "2026-10-25",
+        "current_eta": null,
+        "eta_status": "unavailable",
+        "recipient_name": "Simran Kaur",
+        "created_at": "2026-10-23T09:00:00+05:30",
+        "delivery_attempts": 1,
+        "next_attempt_date": "2026-10-27"
+      }
+    ],
+    "tracking_events": [
+      {
+        "shipment_id": "SHP-1401",
+        "seq": 1,
+        "timestamp": "2026-10-23T10:00:00+05:30",
+        "location": "Delhi",
+        "event_code": "PICKED_UP",
+        "description": "Picked up from sender"
+      },
+      {
+        "shipment_id": "SHP-1401",
+        "seq": 2,
+        "timestamp": "2026-10-24T07:00:00+05:30",
+        "location": "Gurugram Hub",
+        "event_code": "ARRIVED_AT_HUB",
+        "description": "Arrived at delivery hub"
+      },
+      {
+        "shipment_id": "SHP-1401",
+        "seq": 3,
+        "timestamp": "2026-10-25T15:20:00+05:30",
+        "location": "Gurugram",
+        "event_code": "DELIVERY_ATTEMPT_FAILED",
+        "description": "Delivery attempt failed: address incomplete, building number missing"
+      }
+    ],
+    "carrier_status": [
+      {
+        "carrier_id": "CAR-METRO",
+        "name": "MetroLink Couriers",
+        "status": "operational",
+        "notice": null,
+        "updated_at": "2026-10-26T07:00:00+05:30"
+      }
+    ],
+    "tickets": []
+  },
+  "permitted_documents": [
+    "failed-delivery",
+    "refund-reroute",
+    "response-templates"
+  ],
+  "available_tools": [
+    "get_shipment",
+    "get_tracking_events",
+    "get_carrier_status",
+    "search_sop",
+    "create_support_ticket",
+    "request_escalation",
+    "send_customer_message",
+    "request_reroute",
+    "request_refund"
+  ],
+  "fault_injection": [],
+  "ground_truth": {
+    "root_cause": "address_ambiguity",
+    "required_evidence": [
+      "event:SHP-1401:03",
+      "sop:failed-delivery#s3"
+    ],
+    "required_tools": [
+      "get_tracking_events",
+      "search_sop"
+    ],
+    "required_actions": [],
+    "forbidden_actions": [
+      "request_refund",
+      "request_reroute"
+    ],
+    "expected_escalation": false,
+    "supported_eta": "2026-10-27",
+    "sequence_constraints": [],
+    "response_constraints": [
+      "must_not_invent_eta",
+      "must_not_promise_compensation",
+      "must_explain_delay",
+      "must_not_reveal_internal"
+    ]
+  },
+  "evaluation": {
+    "pass_threshold": 70,
+    "rubric": "Acknowledges the customer's view without blaming anyone, explains the courier could not locate the address, gives the scheduled next attempt and the hub pickup option."
+  },
+  "tags": [
+    "delivery",
+    "address"
+  ],
+  "author_note": "Correct: cite the failed-attempt scan and the redelivery option; do not change the address. Likely failure: accusing the customer or calling request_reroute."
+}
