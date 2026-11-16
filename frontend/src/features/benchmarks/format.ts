@@ -13,6 +13,8 @@ export const METRIC_ROWS: { key: keyof SuiteMetrics; label: string; kind: 'pct' 
   { key: 'task_success_rate', label: 'Task success', kind: 'pct' },
   { key: 'root_cause_accuracy', label: 'Root-cause accuracy', kind: 'pct' },
   { key: 'evidence_recall', label: 'Evidence recall', kind: 'pct' },
+  { key: 'sop_retrieval_recall', label: 'SOP retrieval recall', kind: 'pct' },
+  { key: 'citation_precision', label: 'Citation precision', kind: 'pct' },
   { key: 'policy_violation_rate', label: 'Policy violations', kind: 'pct' },
   { key: 'escalation_recall', label: 'Escalation recall', kind: 'pct' },
   { key: 'escalation_precision', label: 'Escalation precision', kind: 'pct' },

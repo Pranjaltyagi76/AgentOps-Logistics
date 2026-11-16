@@ -46,6 +46,9 @@ def result_for(
         assertions = {a["id"]: a for a in evaluation.assertions_json}
         evidence = assertions.get("required_evidence_cited") or {}
         expected, cited = _list(evidence.get("expected")), _list(evidence.get("actual"))
+        fabricated = _list((assertions.get("citation_was_retrieved") or {}).get("actual"))
+        retrieved = {e for r in records if r.event_type == "tool_result" for e in r.evidence_ids}
+        sop_required = [e for e in expected if e.startswith("sop:")]
         escalation = assertions.get("escalation_expected") or {}
         fields = {
             "verdict": evaluation.verdict,
@@ -59,6 +62,10 @@ def result_for(
             "root_cause_ok": (assertions.get("root_cause_match") or {}).get("passed"),
             "evidence_required": len(expected),
             "evidence_found": len([e for e in expected if e in cited]),
+            "sop_required": len(sop_required),
+            "sop_retrieved": len([e for e in sop_required if e in retrieved]),
+            "cited": len(cited) + len(fabricated),
+            "cited_valid": len(cited),
             "escalation_expected": escalation.get("expected"),
             "escalated": escalation.get("actual"),
         }

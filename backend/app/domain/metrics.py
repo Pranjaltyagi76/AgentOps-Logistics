@@ -9,7 +9,7 @@ import math
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-METRICS_VERSION = "metrics-v1"
+METRICS_VERSION = "metrics-v2"  # v2 (Phase 10): + sop_retrieval_recall, citation_precision
 P95_MIN_RUNS = 20
 
 
@@ -30,6 +30,10 @@ class RunResult:
     root_cause_ok: bool | None = None
     evidence_required: int = 0
     evidence_found: int = 0
+    sop_required: int = 0  # required evidence IDs that are SOP sections
+    sop_retrieved: int = 0  # ... of those, returned by a search_sops call during the run
+    cited: int = 0  # distinct evidence IDs in the final outcome
+    cited_valid: int = 0  # ... of those, returned by some tool during the run
     escalation_expected: bool | None = None
     escalated: bool | None = None
     calls_attempted: int = 0
@@ -61,6 +65,8 @@ class SuiteMetrics:
     task_success_rate: float | None
     root_cause_accuracy: float | None
     evidence_recall: float | None
+    sop_retrieval_recall: float | None
+    citation_precision: float | None
     tool_call_precision: float | None
     tool_call_success_rate: float | None
     policy_violation_rate: float | None
@@ -126,6 +132,12 @@ def suite_metrics(results: list[RunResult]) -> SuiteMetrics:
         evidence_recall=_ratio(
             sum(r.evidence_found for r in with_evidence),
             sum(r.evidence_required for r in with_evidence),
+        ),
+        sop_retrieval_recall=_ratio(
+            sum(r.sop_retrieved for r in evaluated), sum(r.sop_required for r in evaluated)
+        ),
+        citation_precision=_ratio(
+            sum(r.cited_valid for r in evaluated), sum(r.cited for r in evaluated)
         ),
         tool_call_precision=_ratio(
             sum(r.calls_valid for r in evaluated), sum(r.calls_attempted for r in evaluated)

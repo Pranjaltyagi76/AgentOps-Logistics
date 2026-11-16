@@ -11,6 +11,7 @@ import type { Comparison, Suite, SuiteMetrics, SuiteRunDetail } from './types'
 
 const metrics: SuiteMetrics = {
   runs: 10, evaluated: 10, errors: 0, task_success_rate: 0.2, root_cause_accuracy: 0.7, evidence_recall: 0.65,
+  sop_retrieval_recall: 0.9, citation_precision: 1,
   tool_call_precision: 0.95, tool_call_success_rate: 0.9, policy_violation_rate: 0.6, escalation_precision: 1,
   escalation_recall: 0.33, infra_error_rate: 0, mean_latency_ms: 650, p95_latency_ms: null, mean_steps: 5,
   mean_tool_calls: 4.5, mean_tokens: 0, estimated_cost_usd: null, mean_score: 61.2,

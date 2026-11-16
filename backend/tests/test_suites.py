@@ -92,6 +92,9 @@ def test_mvp_suite_v1_vs_v2_matches_the_golden_classification(
     )
     assert m1["evidence_recall"] == 1.0 and m2["evidence_recall"] < 1.0
     assert m1["escalation_recall"] == 1.0 and m2["escalation_recall"] < 1.0
+    assert m1["sop_retrieval_recall"] == m1["citation_precision"] == 1.0
+    assert m2["sop_retrieval_recall"] is not None and m2["citation_precision"] is not None
+    assert m1["version"] == "metrics-v2"
     assert m1["mean_tokens"] == 0.0  # rule-based agents use no LLM tokens
     assert m1["estimated_cost_usd"] is None and m1["p95_latency_ms"] is None
     assert v1["evaluator_version"] == v2["evaluator_version"] == "eval-v2"
@@ -195,7 +198,7 @@ def test_launch_is_all_or_nothing(
     assert no_key.status_code == 409
     assert launch_suite(make_api(), viewer_headers, suite_id, gemini).status_code == 403
 
-    monkeypatch.setattr(factory, "_gemini_client", lambda api_key: FakeGeminiClient([]))
+    monkeypatch.setattr(factory, "gemini_client", lambda api_key: FakeGeminiClient([]))
     capped = make_api(gemini_api_key=SecretStr("k"), llm_daily_run_cap=5)
     short = launch_suite(capped, owner_headers, suite_id, gemini)
     assert short.status_code == 429 and short.json()["error"]["code"] == "llm_daily_cap_reached"
@@ -245,18 +248,20 @@ def test_a_restart_settles_interrupted_suite_runs(
 
 
 def test_suite_crud_tag_suites_and_archive(
-    api: TestClient, owner_headers: H, viewer_headers: H, ids: dict[str, uuid.UUID]
+    api: TestClient,
+    owner_headers: H,
+    viewer_headers: H,
+    ids: dict[str, uuid.UUID],
+    scenario_files: dict[str, dict[str, Any]],
 ) -> None:
     body = {"name": "escalations", "title": "Escalation cases", "tag": "escalation"}
     assert api.post("/api/v1/suites", json=body, headers=viewer_headers).status_code == 403
     created = api.post("/api/v1/suites", json=body, headers=owner_headers)
     assert created.status_code == 201, created.text
     suite = created.json()
-    assert sorted(s["scenario_key"] for s in suite["resolved"]) == [
-        "carrier_api_timeout_001",
-        "policy_refund_demand_001",
-        "sla_breach_escalation_001",
-    ]
+    tagged = sorted(d["scenario_id"] for d in scenario_files.values() if "escalation" in d["tags"])
+    assert len(tagged) >= 3
+    assert sorted(s["scenario_key"] for s in suite["resolved"]) == tagged
     duplicate = api.post("/api/v1/suites", json=body, headers=owner_headers)
     assert duplicate.status_code == 409
 

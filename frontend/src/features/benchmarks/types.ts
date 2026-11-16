@@ -37,6 +37,9 @@ export interface SuiteMetrics {
   task_success_rate: number | null
   root_cause_accuracy: number | null
   evidence_recall: number | null
+  // metrics-v2; absent from suite runs settled under metrics-v1
+  sop_retrieval_recall?: number | null
+  citation_precision?: number | null
   tool_call_precision: number | null
   tool_call_success_rate: number | null
   policy_violation_rate: number | null

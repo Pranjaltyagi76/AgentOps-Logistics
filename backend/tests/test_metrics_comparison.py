@@ -104,6 +104,20 @@ def test_tokens_only_when_every_run_reports_them() -> None:
     assert partial.mean_tokens is None
 
 
+def test_sop_retrieval_recall_and_citation_precision() -> None:
+    runs = [
+        result("a", sop_required=2, sop_retrieved=2, cited=4, cited_valid=4),
+        result("b", sop_required=2, sop_retrieved=1, cited=4, cited_valid=2),  # 2 fabricated
+        result("c", sop_required=0, cited=0),  # nothing required, nothing cited
+        result("d", verdict="ERROR", sop_required=5, cited=5),  # not evaluated: ignored
+    ]
+    m = suite_metrics(runs)
+    assert (m.sop_retrieval_recall, m.citation_precision) == (0.75, 0.75)
+    assert m.version == "metrics-v2"
+    none = suite_metrics([result("a")])
+    assert none.sop_retrieval_recall is None and none.citation_precision is None  # unknown, not 0
+
+
 def test_empty_suite_is_all_unknown() -> None:
     m = suite_metrics([])
     assert m.task_success_rate is None and m.mean_latency_ms is None and m.verdicts == {}
