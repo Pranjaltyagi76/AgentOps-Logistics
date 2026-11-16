@@ -224,8 +224,15 @@ class SuiteService:
     # --- suite runs ------------------------------------------------------------------------
 
     def launch(
-        self, suite_id: uuid.UUID, agent_id: uuid.UUID, repeats: int, principal: Principal
+        self,
+        suite_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        repeats: int,
+        principal: Principal,
+        *,
+        is_demo: bool = False,
     ) -> SuiteRun:
+        """`is_demo` marks seeded demo data (scripts/seed_demo.py); runs people start never are."""
         if not 1 <= repeats <= MAX_REPEATS:
             raise AppError(
                 f"repeats must be between 1 and {MAX_REPEATS}",
@@ -262,12 +269,19 @@ class SuiteService:
             ],
             triggered_by_role=principal.role,
             triggered_by=principal.subject,
+            is_demo=is_demo,
         )
         self.db.add(suite_run)
         self.db.flush()
         children = [
             self.runs.new_run(
-                scenario, agent, config, principal, suite_run_id=suite_run.id, repeat_index=repeat
+                scenario,
+                agent,
+                config,
+                principal,
+                suite_run_id=suite_run.id,
+                repeat_index=repeat,
+                is_demo=is_demo,
             )
             for repeat in range(repeats)
             for scenario in scenarios

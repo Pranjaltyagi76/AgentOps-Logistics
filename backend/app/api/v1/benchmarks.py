@@ -142,6 +142,7 @@ class SuiteRunOut(BaseModel):
     flaky: list[str]
     cancel_requested: bool
     triggered_by_role: str
+    is_demo: bool
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
@@ -185,6 +186,7 @@ def _suite_run_out(service: SuiteService, row: SuiteRun) -> SuiteRunOut:
         flaky=summary.get("flaky", []),
         cancel_requested=row.cancel_requested,
         triggered_by_role=row.triggered_by_role,
+        is_demo=row.is_demo,
         created_at=row.created_at,
         started_at=row.started_at,
         finished_at=row.finished_at,

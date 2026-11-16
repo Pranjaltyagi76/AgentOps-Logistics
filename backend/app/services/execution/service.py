@@ -232,6 +232,7 @@ class RunService:
         *,
         suite_run_id: uuid.UUID | None = None,
         repeat_index: int = 0,
+        is_demo: bool = False,
     ) -> Run:
         """Adds a queued run (not committed, not submitted)."""
         # The exact versions used are frozen from now on (edits create new versions).
@@ -259,6 +260,7 @@ class RunService:
             },
             triggered_by_role=principal.role,
             triggered_by=principal.subject,
+            is_demo=is_demo,
         )
         self.db.add(run)
         return run
