@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     run_rate_limit_per_minute: int = Field(default=10, ge=1)
     max_request_bytes: int = Field(default=1_000_000, ge=1_000)
     run_watchdog_grace_s: float = Field(default=15.0, ge=0)
-    llm_daily_run_cap: int = Field(default=50, ge=0)
+    # LLM-backed runs per UTC day. 4 fits the Gemini free tier (20 requests/day for
+    # gemini-3.5-flash on 2026-11-12, ~4 requests per run); raise it on a paid tier.
+    llm_daily_run_cap: int = Field(default=4, ge=0)
     sweep_orphaned_runs_on_startup: bool = True
 
     # LLM providers (Phase 6). Only "configured / not configured" is ever exposed.

@@ -170,7 +170,7 @@ create ──▶│ queued │────────────────�
 | Max model retries (transient) | 2, exponential backoff 1 s → 4 s (server `retryDelay` honoured up to 20 s) | provider adapter |
 | Gemini request timeout | 20 s, never below Gemini's 10 s minimum | provider adapter |
 | Run wall-clock timeout | from the agent config (seeded: 90 s Gemini, 30 s rule-based) | graph deadline + executor watchdog |
-| Daily LLM-backed runs | 50 | `usage_counters` table, checked at run creation |
+| Daily LLM-backed runs | 4 (free tier; was 50 until 2026-11-16) | `usage_counters` table, checked at run creation; a suite takes all its runs up front |
 | Gemini request throttle | `GEMINI_RPM_LIMIT` (default 5/min) | process-wide sliding window in the provider adapter |
 | Request body | 1 MB | `BodySizeLimitMiddleware` (413) |
 | Run creation rate | 10/min per principal | run service (429) |

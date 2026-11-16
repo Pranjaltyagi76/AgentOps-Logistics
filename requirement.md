@@ -76,7 +76,7 @@ Single workspace for the MVP; every core table carries a nullable `workspace_id`
 | FR-04.4 | Record each tool call and result, run start/end, status, error, latency, usage metadata when the provider returns it | MVP | 4 |
 | FR-04.5 | Enforce max steps, max tool calls, max retries, wall-clock timeout; timeout produces a clear `timed_out` state | MVP | 3–4 |
 | FR-04.6 | Cancellation of queued/running runs | Full | 4 |
-| FR-04.7 | Configurable global concurrency limit (default 2) and a daily cap on LLM-backed runs (default 50) | MVP | 4 |
+| FR-04.7 | Configurable global concurrency limit (default 2) and a daily cap on LLM-backed runs (default 4, sized to the Gemini free tier's ~20 requests/day; was 50) | MVP | 4 |
 | FR-04.8 | On backend start, runs left in `queued`/`running` by a crash or sleep are marked `errored` with reason `orphaned` | MVP | 4 |
 
 ### FR-05 Trace viewer

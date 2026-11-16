@@ -126,9 +126,9 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `GEMINI_MODEL` | no | `gemini-3.5-flash` | used by configs with `model_id: "default"`; check AI Studio for current IDs |
 | `GEMINI_THINKING_LEVEL` | no | `minimal` | Gemini 3+ only (`minimal`/`low`/…); 2.5 models get `thinking_budget=0` |
 | `GEMINI_RPM_LIMIT` | no | `5` | process-wide request throttle; keep below the free-tier per-minute limit |
-| *(free-tier fact)* | — | — | on 2026-11-12 the free tier allowed **20 generate requests per day** for `gemini-3.5-flash` (≈ 5 agent runs); set `LLM_DAILY_RUN_CAP` accordingly |
+| *(free-tier fact)* | — | — | on 2026-11-12 the free tier allowed **20 generate requests per day** for `gemini-3.5-flash` (≈ 5 agent runs); hence the `LLM_DAILY_RUN_CAP` default of 4 |
 | `GEMINI_REQUEST_TIMEOUT_S` | no | `20` | per request, min 10 (Gemini's minimum); a hung request is retried |
-| `LLM_DAILY_RUN_CAP` | no | `50` | |
+| `LLM_DAILY_RUN_CAP` | no | `4` | LLM-backed runs per UTC day (suites count every run); 4 fits the free tier, raise it on a paid tier |
 | `MAX_CONCURRENT_RUNS` | no | `2` | rule-based lane size; more runs wait in the queue |
 | `MAX_CONCURRENT_LLM_RUNS` | no | `1` | LLM lane size (Phase 8); keep 1 on the free tier |
 | `MAX_QUEUED_RUNS` | no | `60` | queued + running cap (429 beyond it); a suite needs room for all its runs |

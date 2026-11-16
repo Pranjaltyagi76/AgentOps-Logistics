@@ -43,7 +43,7 @@
 | Rule-based 10-scenario suite | ≤ 30 s | target |
 | Gemini 10-scenario suite | bounded by `GEMINI_RPM_LIMIT`; measure | throttle enforced |
 | Concurrent runs | ≤ 2 | enforced |
-| LLM runs per day | ≤ 50 | enforced |
+| LLM runs per day | ≤ 4 (free tier: ~20 Gemini requests/day) | enforced |
 
 ## 4. Resource and cost budgets
 
@@ -175,9 +175,9 @@ Findings:           The Gemini **free tier allows 20 generate requests per day**
                     Smoke tests, browser runs, judge calls and retries earlier in the day had used it, and the model
                     was also overloaded (503 "high demand", 504 deadline). `LLM_DAILY_RUN_CAP=50` is far above what
                     the free tier can serve (~4 requests per run ⇒ ~5 runs per day).
-Actions:            daily-quota 429s are no longer retried. Recommended: on the free tier set `LLM_DAILY_RUN_CAP`
-                    to about 4 and run Gemini suites of ≤ 4 scenarios per day, or use a model or tier with a higher
-                    daily limit. No Gemini suite metrics exist yet.
+Actions:            daily-quota 429s are no longer retried. `LLM_DAILY_RUN_CAP` default lowered 50 → 4
+                    (2026-11-16), so a Gemini suite now needs ≤ 4 scenarios per day; use a model or tier with a
+                    higher daily limit for the full MVP suite. No Gemini suite metrics exist yet.
 
 ## 8. Known hotspots and optimisation playbook
 
