@@ -22,6 +22,11 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
+
+try:  # google-genai ships its own httpx fork; its errors are not httpx's
+    import httpx2
+except ImportError:  # pragma: no cover - older SDKs use httpx itself
+    httpx2 = httpx  # type: ignore[no-redef]
 from google.genai import errors as genai_errors
 from google.genai import types
 
@@ -260,9 +265,9 @@ def classify_error(exc: BaseException) -> ProviderError | None:
         if code in (408, 499) or code >= 500:
             return ProviderUnavailableError(message, status=code)
         return ProviderBadRequestError(message, status=code)
-    if isinstance(exc, httpx.TimeoutException | TimeoutError):
+    if isinstance(exc, httpx.TimeoutException | httpx2.TimeoutException | TimeoutError):
         return ProviderUnavailableError(f"Gemini request timed out: {exc}")
-    if isinstance(exc, httpx.TransportError | ConnectionError):
+    if isinstance(exc, httpx.TransportError | httpx2.TransportError | ConnectionError):
         return ProviderUnavailableError(f"Gemini network error: {exc}")
     return None
 

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 import httpx
+import httpx2
 import pytest
 from google.genai import types
 from pydantic import SecretStr
@@ -285,6 +286,8 @@ def test_long_retry_hints_and_deadlines_stop_retrying_early() -> None:
             ProviderBadRequestError,
         ),
         (httpx.ReadTimeout("timed out"), ProviderUnavailableError),
+        (httpx2.ReadTimeout("timed out"), ProviderUnavailableError),  # the SDK's httpx fork
+        (httpx2.ConnectError("refused"), ProviderUnavailableError),
         (httpx.ConnectError("refused"), ProviderUnavailableError),
     ],
 )
