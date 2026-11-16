@@ -100,6 +100,21 @@ class Settings(BaseSettings):
     def _empty_key_means_unset(cls, value: object) -> object:
         return None if isinstance(value, str) and not value.strip() else value
 
+    @field_validator("database_url", "migration_database_url", mode="before")
+    @classmethod
+    def _use_the_psycopg_driver(cls, value: object) -> object:
+        # Neon and most hosts hand out postgres:// or postgresql:// URLs; SQLAlchemy would pick
+        # psycopg2 (not installed) for those, so they are pointed at psycopg 3. Empty = unset.
+        if not isinstance(value, str):
+            return value
+        value = value.strip()
+        if not value:
+            return None
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
     @field_validator("jwt_secret", mode="before")
     @classmethod
     def _empty_secret_means_unset(cls, value: object) -> object:

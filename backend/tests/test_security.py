@@ -76,3 +76,19 @@ def test_render_commit_is_the_version_sha(monkeypatch) -> None:  # type: ignore[
     assert Settings(_env_file=None).git_sha == "abc1234"  # type: ignore[call-arg]
     monkeypatch.setenv("GIT_SHA", "fromci")
     assert Settings(_env_file=None).git_sha == "fromci"  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("postgresql://u:p@h/db?sslmode=require", "postgresql+psycopg://u:p@h/db?sslmode=require"),
+        ("postgres://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+        ("postgresql+psycopg://u:p@h/db", "postgresql+psycopg://u:p@h/db"),
+    ],
+)
+def test_database_urls_use_psycopg3(given: str, expected: str) -> None:
+    from app.core.config import Settings
+
+    settings = Settings(_env_file=None, database_url=given, migration_database_url=given)  # type: ignore[call-arg]
+    assert settings.database_url == expected and settings.alembic_database_url == expected
+    assert Settings(_env_file=None, migration_database_url="  ").migration_database_url is None  # type: ignore[call-arg]
