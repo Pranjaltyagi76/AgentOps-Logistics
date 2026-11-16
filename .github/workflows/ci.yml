@@ -126,6 +126,10 @@ jobs:
             -e OWNER_EMAIL=ci-owner@example.com \
             -e OWNER_PASSWORD=ci-only-owner-password-123 \
             agentops-api
+      - name: Wait for background seeding (it runs alongside the server)
+        run: |
+          timeout 300 sh -c 'until docker logs api 2>&1 | grep -q "start: seeding done"; do sleep 2; done'
+          docker logs api 2>&1 | grep -E "^start:|Created owner"
       - name: Smoke test
         run: |
           set -o pipefail

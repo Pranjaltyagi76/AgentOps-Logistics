@@ -27,8 +27,13 @@ services:
         sync: false
       - key: OWNER_PASSWORD  # first boot only: delete it after the owner account exists
         sync: false
-      - key: TRUSTED_PROXY_HOPS  # Render's edge appends the client IP to X-Forwarded-For
-        value: "1"
+      # Client IP for the login rate limit. Measured on Render (2026-11-16): Cloudflare sets
+      # CF-Connecting-IP (overwriting any client value); X-Forwarded-For arrives as
+      # [client-sent..., client, proxy, proxy], so the fallback is the 3rd entry from the right.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
+      - key: TRUSTED_PROXY_HOPS
+        value: "3"
       - key: LLM_DAILY_RUN_CAP
         value: "4"
       - key: LLM_JUDGE_DAILY_CAP
