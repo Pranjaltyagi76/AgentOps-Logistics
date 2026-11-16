@@ -24,7 +24,7 @@
 | 8 | Benchmark suites and regression | ✅ done (2026-11-12) | 7 |
 | 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
 | 10 | RAG and expanded scenarios (30+) | ✅ done (2026-11-16) | 9 |
-| 11 | Deployment | ⬜ | 10 |
+| 11 | Deployment | ✅ deployed (2026-11-16); a completed live Gemini run pending (daily quota) | 10 |
 | 12 | Portfolio polish | ⬜ | 11 |
 
 Legend: ⬜ not started · 🟨 in progress · ✅ done (acceptance verified). Update this table at the end of every phase.
@@ -464,8 +464,28 @@ Implementation notes
 Follow [deployment.md](deployment.md): Neon DB → Render backend → Vercel frontend → secrets/CORS → migrations + seed → smoke test → checklist.
 
 Acceptance
-- [ ] Public URL works end-to-end (viewer can run rule-based benchmark; owner can run Gemini within cap)
-- [ ] Deployment checklist (deployment.md §9) fully ticked; no secrets in Git or bundle
+- [ ] Public URL works end-to-end (viewer can run rule-based benchmark; owner can run Gemini within cap):
+  viewer part done (https://agentops-logistics.vercel.app: demo login, full-31 suite launched from the UI,
+  31/31 PASS, suite run `8ba68b55`); owner signed in and launched a Gemini run within the cap, which Google
+  refused with its free-tier daily limit (429; run `5b169a3a`, recorded as a platform error with a clear
+  message). A completed live Gemini run is still to do
+- [x] Deployment checklist (deployment.md §9) fully ticked; no secrets in Git or bundle: every PROJECT.md item
+  ticked; bundle scanned (no secret values), `.env` git-ignored and outside the Docker build context
+
+Implementation notes
+- Live: frontend https://agentops-logistics.vercel.app (Vercel Hobby), backend
+  https://agentops-api-pehy.onrender.com (Render free, Docker, Singapore, Blueprint `render.yaml`), Neon
+  Postgres 16 in Singapore. Setup steps as actually done: deployment.md §0 and §4–§6.
+- `backend/Dockerfile` (context = repository root), `backend/start.sh` (migrate, serve, seed in the
+  background; Render's free tier has no shell or one-off jobs), `frontend/vercel.json`,
+  `scripts/smoke_test.py`, and a CI job that builds, boots, smoke-tests and restarts the image.
+- Fixed on the way: Neon's `postgresql://` URLs are mapped to psycopg 3; `/version` falls back to
+  `RENDER_GIT_COMMIT`; the login rate limit keys on `CF-Connecting-IP` (`CLIENT_IP_HEADER`) with
+  `TRUSTED_PROXY_HOPS=3` as the fallback, both measured on Render with an address-free header-shape log after
+  the first guess (1 hop) let a spoofed `X-Forwarded-For` through; seeding moved behind the server start after
+  a measured 63 s wake-up.
+- Not measured: memory (Render shows no metrics on the free plan; no restarts or OOM events seen); per-visitor
+  isolation of the login limit (only one test IP; a spoofed header no longer escapes it).
 
 ---
 

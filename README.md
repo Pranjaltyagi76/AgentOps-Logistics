@@ -8,7 +8,12 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 10 done**: 31 validated scenarios across all 10 categories (including two
+> **Live demo:** https://agentops-logistics.vercel.app (API: https://agentops-api-pehy.onrender.com).
+> Free tiers: the backend sleeps after 15 minutes idle and takes about a minute to wake (a banner says so);
+> "Continue as demo viewer" can browse everything and run the rule-based agents; Gemini runs are owner-only
+> and capped at 4 per day by the free quota; seeded demo runs are labelled "demo".
+>
+> **Project status:** 🏗️ **Phase 11 done**: deployed on Neon + Render + Vercel free tiers, smoke-tested. **Phase 10 done**: 31 validated scenarios across all 10 categories (including two
 > prompt-injection cases) and 12 SOPs; optional hybrid SOP retrieval (Postgres full-text + pgvector with Gemini
 > embeddings, fused by reciprocal rank fusion, falling back to text search); retrieval recall and citation
 > precision per suite run. Earlier: a dashboard whose every KPI is a documented SQL query over stored runs,
@@ -19,7 +24,7 @@ version fixed failures or introduced regressions.
 > with a background executor and a live trace viewer (Phase 4), a LangGraph agent with
 > two rule-based baselines and versioned agent configs (Phase 3), 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). Next: deployment (Phase 11).
+> search, and reproducible fault injection (Phase 2). Next: portfolio polish (Phase 12).
 > Features below are *planned* unless marked otherwise. Benchmark results so far are for the rule-based
 > baselines (context/benchmark.md §15); Gemini has only smoke-tested single runs, not a benchmark.
 
