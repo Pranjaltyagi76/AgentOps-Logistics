@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "gen:api": "npm --prefix tools/openapi run gen"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
