@@ -50,3 +50,29 @@ def test_sliding_window_limiter() -> None:
     assert limiter.allow("a") and limiter.allow("a")
     assert not limiter.allow("a")
     assert limiter.allow("b")
+
+
+def test_client_ip_counts_trusted_proxies_from_the_right() -> None:
+    from types import SimpleNamespace
+
+    from app.core.limits import client_ip
+
+    def request(forwarded: str | None) -> SimpleNamespace:
+        headers = {"x-forwarded-for": forwarded} if forwarded is not None else {}
+        return SimpleNamespace(headers=headers, client=SimpleNamespace(host="10.9.9.9"))
+
+    assert client_ip(request("1.1.1.1, 2.2.2.2"), 0) == "10.9.9.9"  # local: ignore the header
+    assert client_ip(request("1.1.1.1, 2.2.2.2"), 1) == "2.2.2.2"
+    assert client_ip(request("1.1.1.1, 2.2.2.2, 3.3.3.3"), 2) == "2.2.2.2"
+    assert client_ip(request(None), 1) == "10.9.9.9"  # no header: socket peer
+    assert client_ip(request(" , "), 1) == "10.9.9.9"
+
+
+def test_render_commit_is_the_version_sha(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from app.core.config import Settings
+
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "abc1234")
+    assert Settings(_env_file=None).git_sha == "abc1234"  # type: ignore[call-arg]
+    monkeypatch.setenv("GIT_SHA", "fromci")
+    assert Settings(_env_file=None).git_sha == "fromci"  # type: ignore[call-arg]

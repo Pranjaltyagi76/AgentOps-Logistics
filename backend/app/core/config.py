@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["local", "test", "production"]
@@ -21,12 +21,17 @@ DEV_JWT_SECRET = "dev-only-insecure-jwt-secret-change-me-0123456789"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", populate_by_name=True
+    )
 
     app_name: str = "AgentOps Logistics API"
     app_env: AppEnv = "local"
     log_level: str = "INFO"
-    git_sha: str = Field(default="dev", description="Set by the deploy platform/CI.")
+    # Set by CI as GIT_SHA; on Render the platform's RENDER_GIT_COMMIT is used.
+    git_sha: str = Field(
+        default="dev", validation_alias=AliasChoices("GIT_SHA", "RENDER_GIT_COMMIT")
+    )
 
     database_url: str = DEFAULT_DATABASE_URL
     migration_database_url: str | None = Field(
@@ -39,6 +44,11 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     data_dir: Path = DEFAULT_DATA_DIR
+
+    # Proxies in front of the app that append to X-Forwarded-For (Render: 1). The client IP is
+    # the entry that many places from the right, so a client cannot spoof it by sending its own
+    # header. 0 (local) uses the socket peer address.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
 
     # Auth (Phase 1)
     jwt_secret: SecretStr = SecretStr(DEV_JWT_SECRET)

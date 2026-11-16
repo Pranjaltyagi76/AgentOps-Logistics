@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import PrincipalDep, SettingsDep
 from app.core.errors import AppError
-from app.core.limits import SlidingWindowLimiter
+from app.core.limits import SlidingWindowLimiter, client_ip
 from app.core.security import Role, create_access_token
 from app.db.session import get_db
 from app.services.auth.service import authenticate
@@ -62,7 +62,7 @@ def login(
     settings: SettingsDep,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenOut:
-    client = request.client.host if request.client else "unknown"
+    client = client_ip(request, settings.trusted_proxy_hops)
     if not _limiter(request).allow(f"login:{client}"):
         raise AppError(
             "Too many sign-in attempts; wait a minute", code="rate_limited", status_code=429

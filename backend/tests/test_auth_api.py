@@ -55,6 +55,22 @@ def test_login_is_rate_limited(api: TestClient) -> None:
     assert codes[-1] == 429
 
 
+def test_behind_a_proxy_a_spoofed_forwarded_for_does_not_escape_the_limit(make_api) -> None:  # type: ignore[no-untyped-def]
+    api = make_api(trusted_proxy_hops=1)
+
+    def attempt(forwarded: str) -> int:
+        return api.post(
+            "/api/v1/auth/login",
+            json={"email": "x@example.com", "password": "x"},
+            headers={"X-Forwarded-For": forwarded},
+        ).status_code
+
+    # The client rotates a fake leftmost address; the proxy-added (rightmost) one stays the same.
+    codes = [attempt(f"10.0.0.{i}, 203.0.113.7") for i in range(11)]
+    assert codes[:10] == [401] * 10 and codes[-1] == 429
+    assert attempt("198.51.100.9") == 401  # a different real client has its own budget
+
+
 def test_owner_password_must_be_long_enough(db_session: Session) -> None:
     with pytest.raises(ValueError, match="at least"):
         upsert_owner(db_session, OWNER_EMAIL, "short")

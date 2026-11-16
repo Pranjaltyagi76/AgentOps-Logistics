@@ -92,3 +92,20 @@ class BodySizeLimitMiddleware:
 
 class _BodyTooLarge(BaseException):
     """BaseException so the app's catch-all `Exception` handler cannot turn it into a 500."""
+
+
+def client_ip(request: Any, trusted_proxy_hops: int) -> str:
+    """The caller's IP: the X-Forwarded-For entry added by the outermost trusted proxy.
+
+    Entries left of it were supplied by the client and are ignored. With no trusted proxies
+    (local), or a header shorter than expected, the socket peer address is used.
+    """
+    if trusted_proxy_hops > 0:
+        forwarded = [
+            part.strip()
+            for part in request.headers.get("x-forwarded-for", "").split(",")
+            if part.strip()
+        ]
+        if len(forwarded) >= trusted_proxy_hops:
+            return forwarded[-trusted_proxy_hops]
+    return request.client.host if request.client else "unknown"
