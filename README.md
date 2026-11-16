@@ -8,15 +8,18 @@ and synthetic data**, records an observable execution trace, scores the run dete
 hidden ground truth, explains *where* the agent failed with cited evidence, and shows whether a new agent
 version fixed failures or introduced regressions.
 
-> **Project status:** 🏗️ **Phase 9 done**: a dashboard whose every KPI is a documented SQL query over stored runs,
-> run and benchmark reports exportable as JSON and CSV, and labelled demo data. Earlier: benchmark suites with
+> **Project status:** 🏗️ **Phase 10 done**: 31 validated scenarios across all 10 categories (including two
+> prompt-injection cases) and 12 SOPs; optional hybrid SOP retrieval (Postgres full-text + pgvector with Gemini
+> embeddings, fused by reciprocal rank fusion, falling back to text search); retrieval recall and citation
+> precision per suite run. Earlier: a dashboard whose every KPI is a documented SQL query over stored runs,
+> run and benchmark reports exportable as JSON and CSV, and labelled demo data (Phase 9); benchmark suites with
 > regression comparison (Phase 8); evidence-linked failure reports and an advisory LLM judge (Phase 7); the
 > same agent graph driven by Gemini Flash (Phase 6); every finished run is scored deterministically (weighted 0–100,
 > four hard safety gates, verdict) with each check linked to the trace step behind it (Phase 5); runs
 > with a background executor and a live trace viewer (Phase 4), a LangGraph agent with
 > two rule-based baselines and versioned agent configs (Phase 3), 10 validated scenarios, owner/demo login and catalog UI (Phase 1),
 > plus 10 mock logistics tools behind a policy-enforcing gateway, 7 synthetic SOPs with Postgres full-text
-> search, and reproducible fault injection (Phase 2). Next: RAG and 30+ scenarios (Phase 10).
+> search, and reproducible fault injection (Phase 2). Next: deployment (Phase 11).
 > Features below are *planned* unless marked otherwise. Benchmark results so far are for the rule-based
 > baselines (context/benchmark.md §15); Gemini has only smoke-tested single runs, not a benchmark.
 

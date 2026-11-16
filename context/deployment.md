@@ -94,6 +94,7 @@ Copy-Item .env.example .env     # then edit values; add GEMINI_API_KEY yourself 
 uv run alembic upgrade head
 uv run python ..\scripts\seed_db.py         # loads data/scenarios (safe to re-run)
 uv run python ..\scripts\seed_demo.py       # optional: labelled demo suite runs (rule-based, no LLM)
+uv run python ..\scripts\embed_sops.py      # optional: SOP embeddings for SOP_RETRIEVAL=hybrid (1 request)
 uv run python ..\scripts\create_owner.py    # reads OWNER_EMAIL / OWNER_PASSWORD from env or .env
 uv run uvicorn app.main:app --reload --port 8000
 ```
@@ -160,6 +161,8 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `LLM_JUDGE_ENABLED` | no | `false` | advisory LLM judge, owner-triggered per run (Phase 7) |
 | `LLM_JUDGE_MODEL` | no | `GEMINI_MODEL` | model for the judge |
 | `LLM_JUDGE_DAILY_CAP` | no | `4` | judge calls per UTC day; shares the free tier's ~20 Gemini requests/day with agent runs (was 30) |
+| `SOP_RETRIEVAL` | no | `lexical` | `hybrid` fuses text and vector search (needs `GEMINI_API_KEY` and `scripts/embed_sops.py`; otherwise falls back to text search) |
+| `EMBEDDING_MODEL` | no | `gemini-embedding-001` | embedding model for hybrid retrieval (768 dims); embedding requests have their own free-tier quota |
 | `LOG_LEVEL` | no | `INFO` | |
 | `OPENAI_API_KEY` | no | — | optional adapter (Later) |
 
@@ -174,7 +177,7 @@ Commit only `.env.example` files with placeholders.
 ## 4. Database (Neon)
 
 1. Create project `agentops-logistics` (choose the region nearest the Render region).
-2. Ensure extension availability: `CREATE EXTENSION IF NOT EXISTS vector;` (done by an Alembic migration in Phase 10; harmless earlier).
+2. Ensure extension availability: `CREATE EXTENSION IF NOT EXISTS vector;` (done by Alembic migration `0009`, Phase 10; Neon supports it).
 3. Copy both the **pooled** connection string (→ `DATABASE_URL`) and the **direct** one (→ `MIGRATION_DATABASE_URL`).
 4. SQLAlchemy engine: `pool_pre_ping=True`, small pool (`pool_size=3`, `max_overflow=2`), `pool_recycle=300` — compute autosuspends when idle and the first query after wake is slower.
 5. Storage is limited on the free tier (verify; historically ~0.5 GB). See trace retention in [system_design.md §11](system_design.md).
@@ -191,7 +194,8 @@ Commit only `.env.example` files with placeholders.
 4. Health check path: `/api/v1/health`.
 5. Set env vars from §3 (`APP_ENV=production`, secrets as secret values).
 6. One-time: run `python ../scripts/seed_db.py`, `python ../scripts/seed_demo.py` (labelled demo data for the
-   public dashboard) and `python ../scripts/create_owner.py` from a Render shell (working dir `backend`), or run them locally with `DATABASE_URL` pointed at Neon.
+   public dashboard), optionally `python ../scripts/embed_sops.py` (only with `SOP_RETRIEVAL=hybrid`; one
+   embedding request for the whole corpus) and `python ../scripts/create_owner.py` from a Render shell (working dir `backend`), or run them locally with `DATABASE_URL` pointed at Neon.
 
 **Free-tier realities (verify):** instance spins down after ~15 min without traffic; cold start can take up to about a minute; limited RAM (~512 MB). Consequences:
 - Frontend shows a "waking up backend…" banner and retries.

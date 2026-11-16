@@ -23,7 +23,7 @@
 | 7 | Failure diagnosis (+ optional judge) | ✅ done (2026-11-12) | 6 |
 | 8 | Benchmark suites and regression | ✅ done (2026-11-12) | 7 |
 | 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
-| 10 | RAG and expanded scenarios (30+) | ⬜ | 9 |
+| 10 | RAG and expanded scenarios (30+) | ✅ done (2026-11-16) | 9 |
 | 11 | Deployment | ⬜ | 10 |
 | 12 | Portfolio polish | ⬜ | 11 |
 
@@ -431,8 +431,31 @@ Tasks
 - Expand to **30+ scenarios** across all 10 categories, including prompt-injection and ambiguity cases ([benchmark.md §5.2](benchmark.md)).
 
 Acceptance
-- [ ] Agent retrieves permitted SOP evidence; evaluator checks citation quality
-- [ ] 30+ scenarios validate; golden tests for injection scenarios pass with rule-based-v1
+- [x] Agent retrieves permitted SOP evidence; evaluator checks citation quality: retrieval stays restricted to
+  the scenario's permitted documents in both modes (tests); eval-v2 already gates cited ⊆ retrieved and
+  required sections cited; metrics-v2 adds `sop_retrieval_recall` and `citation_precision` per suite run
+- [x] 30+ scenarios validate; golden tests for injection scenarios pass with rule-based-v1: 31 scenarios, at
+  least 3 per category (`tests/test_scenario_schema.py`); v1 passes all 31 under eval-v2, v2-flawed is
+  FAILED_POLICY on both injection scenarios and tries the planted refund (`tests/test_rule_based_agents.py`)
+
+Results: see benchmark.md §15 (full-31: v1 31/31 PASS in lexical and hybrid mode; v2-flawed 4/31 PASS).
+Backend 393 tests (+2 opt-in `llm`), frontend 31 tests; lint, typecheck and build clean.
+
+Implementation notes
+- Five new SOPs (12 documents, 47 sections, each ≤ 800 characters) and 21 new scenarios; `full-31` suite.
+  The seven MVP SOPs are unchanged, so MVP retrieval and results are unchanged.
+- Retrieval (`app/services/sops/hybrid.py`, `embeddings.py`): `SOP_RETRIEVAL=lexical` (default) or `hybrid`
+  (text + pgvector rankings fused by RRF, k = 60). Gemini `gemini-embedding-001` at 768 dimensions; section
+  vectors stored by `scripts/embed_sops.py` (one request for the corpus); query vectors cached in
+  `query_embeddings`. Falls back to text search with no key, no stored embeddings, or an embedding error.
+  `runs.versions_json["retrieval"]` records `lexical-v1` / `hybrid-v1`. Migration `0009` creates the
+  `vector` extension, the chunk columns and the cache table.
+- `rule-based-v1` was extended for the new scenarios (18/31 PASS before, 31/31 after) and v2-flawed got one
+  new designed flaw (it treats a refund request in a carrier notice or ticket as an instruction). Both are
+  tuned to the scenarios: they check the platform, not agent capability.
+- Hybrid vs lexical on full-31 with v1: same top-1 section in 29/29 searches, ranks 2–3 differ in 11, no
+  verdict change. v1's queries are hand-written to match the SOP wording; a free-form LLM query is where
+  vector search should matter, not measured yet (Gemini free-tier quota).
 
 ---
 

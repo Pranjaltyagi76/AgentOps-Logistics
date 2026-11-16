@@ -231,6 +231,20 @@ earlier in the pipeline do not count toward fault numbering.
 
 Mock writes are recorded in the run's `ActionLog` (`action:<kind>:<n>`); nothing is sent anywhere.
 
+SOP retrieval behind `search_sop` (`backend/app/services/sops/`), chosen by `SOP_RETRIEVAL`:
+- `lexical` (default, `lexical-v1`): Postgres full-text search (`ts_rank_cd` over `document_chunks.tsv`) on the
+  latest version of each permitted document.
+- `hybrid` (`hybrid-v1`, Phase 10, `hybrid.py`): the top 10 text-search hits and the top 10 pgvector hits
+  (cosine distance between the query embedding and `document_chunks.embedding`, same permitted latest versions)
+  fused by reciprocal rank fusion: score = Σ 1/(60 + rank), ties broken by evidence ID. Embeddings come from
+  `gemini-embedding-001` at 768 dimensions (`embeddings.py`, `GeminiEmbedder`; a deterministic `HashEmbedder`
+  stands in for it in tests and CI). Section embeddings are stored by `scripts/embed_sops.py`; query
+  embeddings are cached in `query_embeddings` keyed by sha256(normalised query) + model, so a repeated
+  benchmark sends no embedding requests and ranks identically.
+- Fallback: with no API key, or no sections embedded with the configured model, the factory builds the
+  lexical searcher; an embedding error during a search falls back to text search for that call (logged, never
+  fails the run). Each run records the mode in `versions_json["retrieval"]`.
+
 ## 6. Trace event schema
 
 ```python
@@ -330,7 +344,8 @@ Refines PROJECT.md §14. All PKs are UUID v4; all timestamps `timestamptz` UTC; 
 | `evaluation_results` | `run_id`, `evaluator_version`, `score_breakdown_json`, `assertions_json`, `task_success`, `verdict`, `policy_violations_json`, `judge_json?` | unique(`run_id`,`evaluator_version`) |
 | `failure_reports` | `run_id`, `evaluation_id`, `diagnoser_version`, `evaluator_version`, `position`, `is_primary`, `failure_type`, `severity`, `likely_stage`, `confidence`, `assertion_ids`, `trace_refs`, `summary` (viewer-safe), `diagnosis` (owner), `debugging_recommendation`, `evidence_json` (owner) | idx(`run_id`), idx(`failure_type`), idx(`evaluation_id`); `evaluation_results.diagnoser_version` marks a diagnosed evaluation (also with no failures) |
 | `documents` | `slug`, `version`, `title`, `document_type`, `content`, `metadata_json` | unique(`slug`,`version`) |
-| `document_chunks` | `document_id`, `section_id`, `text`, `tsv` (tsvector), `embedding?` (vector, Phase 10) | unique(`document_id`,`section_id`); GIN(`tsv`) |
+| `document_chunks` | `document_id`, `section_id`, `text`, `tsv` (tsvector), `embedding?` (vector(768), Phase 10), `embedding_model?` | unique(`document_id`,`section_id`); GIN(`tsv`) |
+| `query_embeddings` | `query_hash` (sha256), `model`, `query_text`, `embedding` (vector(768)) | unique(`query_hash`,`model`) (Phase 10 cache) |
 | `usage_counters` | `day` (date UTC), `key` (e.g. `llm_runs`), `count` | unique(`day`,`key`) |
 
 Seeded rows set `is_demo = true`.
