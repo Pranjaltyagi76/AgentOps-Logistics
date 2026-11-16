@@ -72,7 +72,7 @@ def judged_api(
 ) -> Callable[..., tuple[TestClient, FakeGeminiClient]]:
     def build(script: list[Any], **overrides: Any) -> tuple[TestClient, FakeGeminiClient]:
         client = FakeGeminiClient(script)
-        monkeypatch.setattr(factory, "_gemini_client", lambda api_key: client)
+        monkeypatch.setattr(factory, "gemini_client", lambda api_key: client)
         settings = {
             "gemini_api_key": SecretStr("test-key"),
             "gemini_rpm_limit": 1000,

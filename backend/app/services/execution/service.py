@@ -24,6 +24,7 @@ from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import RunExecutor
 from app.services.execution.worker import execute_run, mark_overrun
 from app.services.providers.factory import provider_problem, resolve_model_id
+from app.services.sops.hybrid import retrieval_version
 from app.services.tools.registry import TOOL_REGISTRY_VERSION
 
 LLM_RUNS_KEY = "llm_runs"
@@ -256,6 +257,7 @@ class RunService:
                 "taxonomy": TAXONOMY_VERSION,
                 "prompt": config.prompt_version,
                 "model": resolve_model_id(config, self.settings),
+                "retrieval": retrieval_version(self.settings, self.db),
                 "evaluator": None,  # set when the run is scored
             },
             triggered_by_role=principal.role,

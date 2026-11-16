@@ -49,7 +49,7 @@ GOOD_OUTCOME = {
 def use_fake_gemini(monkeypatch: pytest.MonkeyPatch) -> Callable[[list[Any]], FakeGeminiClient]:
     def install(script: list[Any]) -> FakeGeminiClient:
         client = FakeGeminiClient(script)
-        monkeypatch.setattr(factory, "_gemini_client", lambda api_key: client)
+        monkeypatch.setattr(factory, "gemini_client", lambda api_key: client)
         return client
 
     return install

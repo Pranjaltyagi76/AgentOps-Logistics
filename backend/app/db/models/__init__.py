@@ -1,7 +1,7 @@
 """Import every model so Base.metadata is complete (Alembic autogenerate relies on it)."""
 
 from app.db.models.agent_config import AgentConfig
-from app.db.models.document import Document, DocumentChunk
+from app.db.models.document import Document, DocumentChunk, QueryEmbedding
 from app.db.models.evaluation import EvaluationResult
 from app.db.models.failure_report import FailureReport
 from app.db.models.run import Run, TraceEvent, UsageCounter
@@ -16,6 +16,7 @@ __all__ = [
     "DocumentChunk",
     "EvaluationResult",
     "FailureReport",
+    "QueryEmbedding",
     "Run",
     "Scenario",
     "SuiteMembership",

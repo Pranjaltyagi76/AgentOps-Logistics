@@ -43,7 +43,9 @@ def test_launch_runs_to_completion_with_a_complete_trace(
     assert run["triggered_by_role"] == "viewer"
     assert run["limits"] == {"max_steps": 12, "max_tool_calls": 10, "timeout_s": 30}
     assert (
-        run["versions"]["policy"] == "policy-v1" and run["versions"]["tool_registry"] == "tools-v1"
+        run["versions"]["policy"] == "policy-v1"
+        and run["versions"]["tool_registry"] == "tools-v1"
+        and run["versions"]["retrieval"] == "lexical-v1"
     )
     assert (run["verdict"], run["score"]) == ("PASS", 100.0)  # scored right after the run
 

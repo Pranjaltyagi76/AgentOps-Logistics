@@ -1,13 +1,16 @@
 """SOP documents and their sections ("chunks"), searchable with Postgres full-text search.
 
-A chunk is one SOP section, so a search hit maps 1:1 to an evidence ID `sop:<slug>#<section>`.
-An `embedding` column is added in Phase 10 (pgvector).
+A chunk is one SOP section, so a search hit maps 1:1 to an evidence ID `sop:<slug>#<section>`
+(sections are short: a test keeps every one under 800 characters, so no further splitting).
+Phase 10 adds an optional pgvector `embedding` per chunk and a cache of query embeddings, used
+by hybrid retrieval (services/sops/hybrid.py).
 """
 
 import uuid
 from datetime import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Computed,
     DateTime,
@@ -24,6 +27,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.models.common import CreatedAt, UUIDPrimaryKey
+
+EMBEDDING_DIMENSIONS = 768
 
 
 class Document(UUIDPrimaryKey, CreatedAt, Base):
@@ -71,4 +76,22 @@ class DocumentChunk(UUIDPrimaryKey, CreatedAt, Base):
         nullable=False,
     )
 
+    # Optional semantic vector (Phase 10); NULL until scripts/embed_sops.py has run.
+    embedding: Mapped[Any] = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(60), nullable=True)
+
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class QueryEmbedding(UUIDPrimaryKey, CreatedAt, Base):
+    """Cache of search-query embeddings: repeated runs cost no quota and rank identically."""
+
+    __tablename__ = "query_embeddings"
+    __table_args__ = (
+        UniqueConstraint("query_hash", "model", name="uq_query_embeddings_hash_model"),
+    )
+
+    query_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[Any] = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=False)

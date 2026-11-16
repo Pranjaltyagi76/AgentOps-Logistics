@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     # Shares the Gemini free tier's ~20 requests/day with agent runs (1-2 requests per call).
     llm_judge_daily_cap: int = Field(default=4, ge=0)
 
+    # SOP retrieval (Phase 10): "lexical" (full-text, default) or "hybrid" (full-text + vectors,
+    # fused with RRF; falls back to lexical when sections have no embeddings or no key is set).
+    sop_retrieval: Literal["lexical", "hybrid"] = "lexical"
+    embedding_model: str = Field(
+        default="gemini-embedding-001", pattern=r"^[a-z0-9][a-z0-9.\-]{2,80}$"
+    )
+
     @field_validator("gemini_api_key", "openai_api_key", mode="before")
     @classmethod
     def _empty_key_means_unset(cls, value: object) -> object:

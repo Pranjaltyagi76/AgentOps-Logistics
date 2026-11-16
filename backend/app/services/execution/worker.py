@@ -23,7 +23,7 @@ from app.services.execution.collector import SessionFactory, TraceCollector
 from app.services.execution.executor import CancelToken
 from app.services.providers.errors import ProviderError
 from app.services.providers.factory import resolve_model_id
-from app.services.sops.service import PerCallSopSearcher
+from app.services.sops.hybrid import build_sop_searcher
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ def _execute_run(
         result = run_scenario(
             scenario,
             config,
-            PerCallSopSearcher(session_factory),
+            build_sop_searcher(settings, session_factory),
             observer=collector,
             sleep=token.wait,
             hooks=RunHooks(

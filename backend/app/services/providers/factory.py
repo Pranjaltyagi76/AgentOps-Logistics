@@ -49,7 +49,7 @@ def gemini_throttle(rpm: int) -> RequestThrottle:
         return _throttles[rpm]
 
 
-def _gemini_client(api_key: str) -> Any:
+def gemini_client(api_key: str) -> Any:
     from google import genai  # imported lazily: rule-based-only servers never load the SDK
 
     with _lock:
@@ -78,7 +78,7 @@ def build_provider(
         raise ProviderNotConfiguredError(f"Provider '{config.provider}' has no adapter")
     assert settings.gemini_api_key is not None
     return GeminiProvider(
-        client or _gemini_client(settings.gemini_api_key.get_secret_value()),
+        client or gemini_client(settings.gemini_api_key.get_secret_value()),
         resolve_model_id(config, settings),
         throttle=gemini_throttle(settings.gemini_rpm_limit),
         thinking_level=settings.gemini_thinking_level,
@@ -108,7 +108,7 @@ def build_judge_provider(
             "Gemini is not configured on this server (GEMINI_API_KEY is not set)"
         )
     return GeminiProvider(
-        client or _gemini_client(settings.gemini_api_key.get_secret_value()),
+        client or gemini_client(settings.gemini_api_key.get_secret_value()),
         judge_model_id(settings),
         throttle=gemini_throttle(settings.gemini_rpm_limit),
         thinking_level=settings.gemini_thinking_level,
