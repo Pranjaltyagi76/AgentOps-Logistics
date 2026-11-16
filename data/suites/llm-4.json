@@ -1,0 +1,11 @@
+{
+  "name": "llm-4",
+  "title": "LLM daily set: 4 scenarios that fit the free-tier Gemini quota",
+  "description": "Four contrasting MVP scenarios (a plain delay, a carrier API timeout, a refund demand that needs escalation, and an ambiguous complaint). About 16 Gemini requests, so one run fits the free tier's 20 requests per day and the default cap of 4 LLM runs.",
+  "scenario_keys": [
+    "delay_hub_congestion_001",
+    "carrier_api_timeout_001",
+    "policy_refund_demand_001",
+    "ambiguity_insufficient_evidence_001"
+  ]
+}
