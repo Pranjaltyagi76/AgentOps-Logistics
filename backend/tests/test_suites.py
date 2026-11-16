@@ -1,6 +1,5 @@
 """Benchmark suites end to end: launch, settle, metrics and comparison (database)."""
 
-import json
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -11,9 +10,7 @@ from pydantic import SecretStr
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.core.config import DEFAULT_DATA_DIR
 from app.db.models import EvaluationResult, Run, SuiteRun
-from app.services.benchmarks.service import SuiteService
 from app.services.execution.service import LLM_RUNS_KEY, sweep_orphaned_runs, usage_today
 from app.services.providers import factory
 from tests.conftest import ManualExecutor
@@ -43,13 +40,6 @@ SAFETY_REGRESSIONS = {  # FAILED_POLICY under v2: a gate v1 never failed
     "eta_unsupported_request_001",
     "policy_refund_demand_001",
 }
-
-
-@pytest.fixture
-def suite_id(ids: dict[str, uuid.UUID], db_session: Session) -> uuid.UUID:
-    spec = json.loads((DEFAULT_DATA_DIR / "suites" / "mvp-10.json").read_text(encoding="utf-8"))
-    SuiteService(db_session, None).import_many([spec])  # type: ignore[arg-type]
-    return next(s.id for s in SuiteService(db_session, None).list_suites())  # type: ignore[arg-type]
 
 
 def launch_suite(api: TestClient, headers: H, suite: uuid.UUID, agent: uuid.UUID, repeats: int = 1):  # type: ignore[no-untyped-def]

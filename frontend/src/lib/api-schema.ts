@@ -216,6 +216,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboard Summary
+         * @description KPIs, failure types, agent versions and recent activity; each KPI carries its SQL.
+         */
+        get: operations["dashboard_summary_api_v1_dashboard_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -225,6 +245,40 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_v1_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Run Report */
+        get: operations["export_run_report_api_v1_reports_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/suite-runs/{suite_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Suite Report */
+        get: operations["export_suite_report_api_v1_reports_suite_runs__suite_run_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -767,7 +821,7 @@ export interface components {
             /** Version */
             version: number;
             /** Versions */
-            versions: components["schemas"]["AgentVersionOut"][];
+            versions: components["schemas"]["app__api__v1__agents__AgentVersionOut"][];
         };
         /** AgentSummaryOut */
         AgentSummaryOut: {
@@ -795,25 +849,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Version */
-            version: number;
-        };
-        /** AgentVersionOut */
-        AgentVersionOut: {
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Is Locked */
-            is_locked: boolean;
-            /** Status */
-            status: string;
             /** Version */
             version: number;
         };
@@ -866,6 +901,29 @@ export interface components {
             score: number | null;
             /** Weight */
             weight: number;
+        };
+        /** DashboardOut */
+        DashboardOut: {
+            /** Agent Versions */
+            agent_versions: components["schemas"]["app__api__v1__dashboard__AgentVersionOut"][];
+            /** Demo Runs */
+            demo_runs: number;
+            /** Failure Types */
+            failure_types: components["schemas"]["FailureTypeOut"][];
+            /** Include Demo */
+            include_demo: boolean;
+            /** Kpis */
+            kpis: components["schemas"]["KpiOut"][];
+            /** Queries */
+            queries: {
+                [key: string]: string;
+            };
+            /** Recent Runs */
+            recent_runs: components["schemas"]["RecentRunOut"][];
+            /** Recent Suite Runs */
+            recent_suite_runs: components["schemas"]["RecentSuiteRunOut"][];
+            /** Version */
+            version: string;
         };
         /**
          * Difficulty
@@ -973,6 +1031,17 @@ export interface components {
             /** Verdict */
             verdict: string;
         };
+        /** FailureTypeOut */
+        FailureTypeOut: {
+            /** Failure Type */
+            failure_type: string;
+            /** Items */
+            items: number;
+            /** Main Findings */
+            main_findings: number;
+            /** Runs */
+            runs: number;
+        };
         /** GeminiStatus */
         GeminiStatus: {
             /** Configured */
@@ -1053,6 +1122,24 @@ export interface components {
             /** Prompt Version */
             prompt_version: string;
         };
+        /** KpiOut */
+        KpiOut: {
+            /** Definition */
+            definition: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Sql */
+            sql: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "count" | "rate" | "score" | "ms" | "usd";
+            /** Value */
+            value: number | null;
+        };
         /** Limits */
         Limits: {
             /** Concurrent Llm Runs */
@@ -1108,6 +1195,64 @@ export interface components {
             provider: "rule_based" | "gemini" | "openai";
             /** Runs Left Today */
             runs_left_today?: number | null;
+        };
+        /** RecentRunOut */
+        RecentRunOut: {
+            /** Agent Name */
+            agent_name: string;
+            /** Agent Version */
+            agent_version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /** Provider */
+            provider: string;
+            /** Scenario Key */
+            scenario_key: string;
+            /** Scenario Version */
+            scenario_version: number;
+            /** Score */
+            score: number | null;
+            /** Status */
+            status: string;
+            /** Verdict */
+            verdict: string | null;
+        };
+        /** RecentSuiteRunOut */
+        RecentSuiteRunOut: {
+            /** Agent Name */
+            agent_name: string;
+            /** Agent Version */
+            agent_version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /** Status */
+            status: string;
+            /** Suite Name */
+            suite_name: string;
+            /** Task Success Rate */
+            task_success_rate: number | null;
+            /** Total Runs */
+            total_runs: number;
         };
         /** RunCreateIn */
         RunCreateIn: {
@@ -1489,6 +1634,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Is Demo */
+            is_demo: boolean;
             /** Metrics */
             metrics: {
                 [key: string]: unknown;
@@ -1565,6 +1712,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Is Demo */
+            is_demo: boolean;
             /** Metrics */
             metrics: {
                 [key: string]: unknown;
@@ -1758,6 +1907,25 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** AgentVersionOut */
+        app__api__v1__agents__AgentVersionOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Locked */
+            is_locked: boolean;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+        };
         /** CloneIn */
         app__api__v1__agents__CloneIn: {
             /** New Name */
@@ -1771,6 +1939,25 @@ export interface components {
             status: string;
             /** Versions Changed */
             versions_changed: number;
+        };
+        /** AgentVersionOut */
+        app__api__v1__dashboard__AgentVersionOut: {
+            /** Agent Name */
+            agent_name: string;
+            /** Agent Version */
+            agent_version: number;
+            /** Mean Latency Ms */
+            mean_latency_ms: number | null;
+            /** Mean Score */
+            mean_score: number | null;
+            /** Pass Rate */
+            pass_rate: number | null;
+            /** Policy Violation Rate */
+            policy_violation_rate: number | null;
+            /** Provider */
+            provider: string;
+            /** Runs */
+            runs: number;
         };
         /** CloneIn */
         app__schemas__scenario_api__CloneIn: {
@@ -2210,6 +2397,37 @@ export interface operations {
             };
         };
     };
+    dashboard_summary_api_v1_dashboard_summary_get: {
+        parameters: {
+            query?: {
+                include_demo?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -2226,6 +2444,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    export_run_report_api_v1_reports_runs__run_id__get: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_suite_report_api_v1_reports_suite_runs__suite_run_id__get: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path: {
+                suite_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

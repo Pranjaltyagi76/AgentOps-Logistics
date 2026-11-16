@@ -6,6 +6,7 @@ from app.api.v1 import (
     agents,
     auth,
     benchmarks,
+    dashboard,
     health,
     runs,
     scenarios,
@@ -22,3 +23,4 @@ api_router.include_router(agents.router)
 api_router.include_router(runs.router)
 api_router.include_router(benchmarks.router)
 api_router.include_router(settings_status.router)
+api_router.include_router(dashboard.router)

@@ -303,3 +303,16 @@ def ids(
     result = {s.scenario_key: s.id for s in db_session.scalars(select(Scenario))}
     result |= {a.name: a.id for a in db_session.scalars(select(AgentConfig))}
     return result
+
+
+@pytest.fixture
+def suite_id(ids: dict[str, uuid.UUID], db_session: Session) -> uuid.UUID:
+    spec = json.loads((DEFAULT_DATA_DIR / "suites" / "mvp-10.json").read_text(encoding="utf-8"))
+    _suite_service(db_session).import_many([spec])  # type: ignore[arg-type]
+    return next(s.id for s in _suite_service(db_session).list_suites())  # type: ignore[arg-type]
+
+
+def _suite_service(db: Session) -> Any:
+    from app.services.benchmarks.service import SuiteService
+
+    return SuiteService(db, None)  # type: ignore[arg-type]  # CRUD only, no launches

@@ -61,7 +61,7 @@
           },
           "versions": {
             "items": {
-              "$ref": "#/components/schemas/AgentVersionOut"
+              "$ref": "#/components/schemas/app__api__v1__agents__AgentVersionOut"
             },
             "title": "Versions",
             "type": "array"
@@ -144,41 +144,6 @@
           "updated_at"
         ],
         "title": "AgentSummaryOut",
-        "type": "object"
-      },
-      "AgentVersionOut": {
-        "properties": {
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "is_locked": {
-            "title": "Is Locked",
-            "type": "boolean"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "version",
-          "status",
-          "is_locked",
-          "created_at"
-        ],
-        "title": "AgentVersionOut",
         "type": "object"
       },
       "AgentWriteOut": {
@@ -328,6 +293,77 @@
           "detail"
         ],
         "title": "ComponentOut",
+        "type": "object"
+      },
+      "DashboardOut": {
+        "properties": {
+          "agent_versions": {
+            "items": {
+              "$ref": "#/components/schemas/app__api__v1__dashboard__AgentVersionOut"
+            },
+            "title": "Agent Versions",
+            "type": "array"
+          },
+          "demo_runs": {
+            "title": "Demo Runs",
+            "type": "integer"
+          },
+          "failure_types": {
+            "items": {
+              "$ref": "#/components/schemas/FailureTypeOut"
+            },
+            "title": "Failure Types",
+            "type": "array"
+          },
+          "include_demo": {
+            "title": "Include Demo",
+            "type": "boolean"
+          },
+          "kpis": {
+            "items": {
+              "$ref": "#/components/schemas/KpiOut"
+            },
+            "title": "Kpis",
+            "type": "array"
+          },
+          "queries": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Queries",
+            "type": "object"
+          },
+          "recent_runs": {
+            "items": {
+              "$ref": "#/components/schemas/RecentRunOut"
+            },
+            "title": "Recent Runs",
+            "type": "array"
+          },
+          "recent_suite_runs": {
+            "items": {
+              "$ref": "#/components/schemas/RecentSuiteRunOut"
+            },
+            "title": "Recent Suite Runs",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "include_demo",
+          "demo_runs",
+          "kpis",
+          "failure_types",
+          "agent_versions",
+          "recent_runs",
+          "recent_suite_runs",
+          "queries"
+        ],
+        "title": "DashboardOut",
         "type": "object"
       },
       "Difficulty": {
@@ -601,6 +637,34 @@
         "title": "FailureReportOut",
         "type": "object"
       },
+      "FailureTypeOut": {
+        "properties": {
+          "failure_type": {
+            "title": "Failure Type",
+            "type": "string"
+          },
+          "items": {
+            "title": "Items",
+            "type": "integer"
+          },
+          "main_findings": {
+            "title": "Main Findings",
+            "type": "integer"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failure_type",
+          "items",
+          "main_findings",
+          "runs"
+        ],
+        "title": "FailureTypeOut",
+        "type": "object"
+      },
       "GeminiStatus": {
         "properties": {
           "configured": {
@@ -822,6 +886,58 @@
         "title": "JudgeStatus",
         "type": "object"
       },
+      "KpiOut": {
+        "properties": {
+          "definition": {
+            "title": "Definition",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "sql": {
+            "title": "Sql",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "rate",
+              "score",
+              "ms",
+              "usd"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "value",
+          "definition",
+          "sql"
+        ],
+        "title": "KpiOut",
+        "type": "object"
+      },
       "Limits": {
         "properties": {
           "concurrent_llm_runs": {
@@ -985,6 +1101,147 @@
           "note"
         ],
         "title": "ProviderStatus",
+        "type": "object"
+      },
+      "RecentRunOut": {
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "agent_version": {
+            "title": "Agent Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "scenario_key": {
+            "title": "Scenario Key",
+            "type": "string"
+          },
+          "scenario_version": {
+            "title": "Scenario Version",
+            "type": "integer"
+          },
+          "score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Score"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verdict"
+          }
+        },
+        "required": [
+          "id",
+          "scenario_key",
+          "scenario_version",
+          "agent_name",
+          "agent_version",
+          "provider",
+          "status",
+          "verdict",
+          "score",
+          "is_demo",
+          "created_at"
+        ],
+        "title": "RecentRunOut",
+        "type": "object"
+      },
+      "RecentSuiteRunOut": {
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "agent_version": {
+            "title": "Agent Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "suite_name": {
+            "title": "Suite Name",
+            "type": "string"
+          },
+          "task_success_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Success Rate"
+          },
+          "total_runs": {
+            "title": "Total Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "suite_name",
+          "agent_name",
+          "agent_version",
+          "status",
+          "total_runs",
+          "is_demo",
+          "created_at",
+          "task_success_rate"
+        ],
+        "title": "RecentSuiteRunOut",
         "type": "object"
       },
       "RunCreateIn": {
@@ -2006,6 +2263,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
           "metrics": {
             "anyOf": [
               {
@@ -2100,6 +2361,7 @@
           "flaky",
           "cancel_requested",
           "triggered_by_role",
+          "is_demo",
           "created_at",
           "started_at",
           "finished_at",
@@ -2188,6 +2450,10 @@
             "title": "Id",
             "type": "string"
           },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
           "metrics": {
             "anyOf": [
               {
@@ -2275,6 +2541,7 @@
           "flaky",
           "cancel_requested",
           "triggered_by_role",
+          "is_demo",
           "created_at",
           "started_at",
           "finished_at"
@@ -2756,6 +3023,41 @@
         "title": "VersionOut",
         "type": "object"
       },
+      "app__api__v1__agents__AgentVersionOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_locked": {
+            "title": "Is Locked",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "status",
+          "is_locked",
+          "created_at"
+        ],
+        "title": "AgentVersionOut",
+        "type": "object"
+      },
       "app__api__v1__agents__CloneIn": {
         "properties": {
           "new_name": {
@@ -2795,6 +3097,82 @@
           "versions_changed"
         ],
         "title": "StatusChangeOut",
+        "type": "object"
+      },
+      "app__api__v1__dashboard__AgentVersionOut": {
+        "properties": {
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "agent_version": {
+            "title": "Agent Version",
+            "type": "integer"
+          },
+          "mean_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Latency Ms"
+          },
+          "mean_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Score"
+          },
+          "pass_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pass Rate"
+          },
+          "policy_violation_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Violation Rate"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "agent_name",
+          "agent_version",
+          "provider",
+          "runs",
+          "pass_rate",
+          "mean_score",
+          "policy_violation_rate",
+          "mean_latency_ms"
+        ],
+        "title": "AgentVersionOut",
         "type": "object"
       },
       "app__schemas__scenario_api__CloneIn": {
@@ -3497,6 +3875,56 @@
         ]
       }
     },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "description": "KPIs, failure types, agent versions and recent activity; each KPI carries its SQL.",
+        "operationId": "dashboard_summary_api_v1_dashboard_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_demo",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Demo",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dashboard Summary",
+        "tags": [
+          "dashboard",
+          "reports"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "operationId": "health_api_v1_health_get",
@@ -3515,6 +3943,128 @@
         "summary": "Health",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/reports/runs/{run_id}": {
+      "get": {
+        "operationId": "export_run_report_api_v1_reports_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Run Report",
+        "tags": [
+          "dashboard",
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/suite-runs/{suite_run_id}": {
+      "get": {
+        "operationId": "export_suite_report_api_v1_reports_suite_runs__suite_run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "suite_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suite Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Export Suite Report",
+        "tags": [
+          "dashboard",
+          "reports"
         ]
       }
     },
