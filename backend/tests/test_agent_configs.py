@@ -152,3 +152,20 @@ def test_provider_status_never_reveals_keys(
     assert body["gemini"]["runs_left_today"] is None  # viewers can't launch LLM runs
     assert body["openai"]["available"] is False
     assert "AIza" not in response.text and "secret-value" not in response.text
+
+
+@pytest.mark.db
+def test_settings_status_shows_limits_and_versions_but_no_secrets(
+    make_api: Any, owner_headers: H, viewer_headers: H
+) -> None:
+    api = make_api(gemini_api_key=SecretStr("AIza-very-secret"), llm_judge_enabled=True)
+    owner = api.get("/api/v1/settings/status", headers=owner_headers)
+    assert owner.status_code == 200, owner.text
+    body = owner.json()
+    assert body["gemini"]["configured"] is True and body["judge"]["enabled"] is True
+    assert body["limits"]["llm_runs_per_day"] == 4 and body["limits"]["judge_calls_per_day"] == 4
+    assert body["usage_today"] == {"llm_runs": 0, "judge_calls": 0}
+    assert body["versions"]["evaluator"] == "eval-v2" and body["versions"]["diagnoser"] == "diag-v1"
+    assert "very-secret" not in owner.text
+    viewer = api.get("/api/v1/settings/status", headers=viewer_headers).json()
+    assert viewer["usage_today"] is None
