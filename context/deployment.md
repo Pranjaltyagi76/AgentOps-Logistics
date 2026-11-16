@@ -54,11 +54,29 @@ docker compose version
 - **Portable Postgres binaries** (what the dev machine uses as of 2026-11-08, no admin rights needed):
   Postgres 16.2 binaries in `%LOCALAPPDATA%\Programs\pgsql-16`, data in `%LOCALAPPDATA%\agentops-pg\data`,
   listening on `127.0.0.1:5432` with the same user/password/database names as the Docker setup, plus an
-  empty `agentops_test` database for tests. Start it after a reboot with:
+  empty `agentops_test` database for tests. It does not start by itself after a reboot; start it with
+  (safe to re-run, does nothing if it is already running):
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\pgsql-16\bin\pg_ctl.exe" -D "$env:LOCALAPPDATA\agentops-pg\data" -l "$env:LOCALAPPDATA\agentops-pg\server.log" -o "-p 5432 -c listen_addresses=127.0.0.1" start
+powershell -ExecutionPolicy Bypass -File scripts\start_db.ps1
 ```
+
+  To start it automatically at sign-in, register the per-user scheduled task shown in the header of
+  `scripts/start_db.ps1` (no admin rights needed).
+
+### 2.1a Generated API types
+
+`frontend/src/lib/api-schema.ts` is generated from the backend's OpenAPI schema; CI fails if either is stale.
+After changing an API model:
+
+```powershell
+cd backend; uv run python ..\scripts\export_openapi.py      # writes frontend/openapi.json
+cd ..\frontend; npm ci --prefix tools/openapi; npm run gen:api
+```
+
+The generator lives in its own package (`frontend/tools/openapi`) because openapi-typescript needs TypeScript 5
+and the app uses TypeScript 7. New code should import types from `@/lib/api-schema`
+(`components['schemas']['...']`); the older hand-written types are migrated as their screens change.
 
 ### 2.2 Run locally (available from Phase 0)
 
@@ -140,7 +158,7 @@ and a `pg_isready` healthcheck. The default `DATABASE_URL` points at `127.0.0.1`
 | `MAX_AGENT_STEPS` / `MAX_TOOL_CALLS` | no | `8` / `10` | |
 | `LLM_JUDGE_ENABLED` | no | `false` | advisory LLM judge, owner-triggered per run (Phase 7) |
 | `LLM_JUDGE_MODEL` | no | `GEMINI_MODEL` | model for the judge |
-| `LLM_JUDGE_DAILY_CAP` | no | `30` | judge calls per UTC day |
+| `LLM_JUDGE_DAILY_CAP` | no | `4` | judge calls per UTC day; shares the free tier's ~20 Gemini requests/day with agent runs (was 30) |
 | `LOG_LEVEL` | no | `INFO` | |
 | `OPENAI_API_KEY` | no | — | optional adapter (Later) |
 

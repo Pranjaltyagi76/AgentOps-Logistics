@@ -343,7 +343,7 @@ Prefix `/api/v1`. Endpoint list in PROJECT.md §15, plus:
 |---|---|
 | `POST /auth/login`, `POST /auth/demo`, `GET /auth/me` | auth (FR-11) |
 | `GET /dashboard/summary` | KPIs computed server-side |
-| `GET /settings/status` | provider configured?, limits, versions (no secrets) |
+| `GET /settings/status` | provider configured?, limits, today's LLM usage (owner), component versions (no secrets); shown on the Settings page |
 | `GET /taxonomy` | categories, root-cause enums, failure types, tool names (for UI and editor validation) |
 | `GET /runs/{id}/failure-report` | diag-v1 report of the latest evaluation; `diagnosis`/`evidence` owner-only |
 | `POST /runs/{id}/judge` | owner: advisory LLM judge (409 off / no key, 429 cap or quota, 502 invalid output) |

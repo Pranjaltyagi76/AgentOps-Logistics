@@ -13,7 +13,7 @@
 
 | Phase | Name | Status | PROJECT.md phase |
 |---|---|---|---|
-| 0 | Foundation | ✅ done (CI green incl. real Postgres; local Docker DB pending) | 0 |
+| 0 | Foundation | ✅ done (CI green incl. real Postgres; Docker Compose untested: no Docker on the dev machine) | 0 |
 | 1 | Scenario system + auth | ✅ done (2026-11-08) | 1 |
 | 2 | Mock logistics tools, policy, SOP search | ✅ done (2026-11-09) | 2 (+ lexical part of 9) |
 | 3 | Agent graph + rule-based agents + agent configs | ✅ done (2026-11-09) | 3 (first half) |
@@ -47,11 +47,13 @@ Tasks
 - README "Getting started" made real.
 
 Acceptance
-- [ ] `docker compose up -d db` healthy (or Neon dev branch): **pending**, as Docker isn't installed on the dev machine yet
+- [ ] `docker compose up -d db` healthy: **not testable on the dev machine** (no Docker or WSL, checked 2026-11-16).
+  Replaced by the portable Postgres 16 setup (deployment.md §2) locally and the Postgres service container in CI;
+  the compose file is still untested and will be covered by the Neon setup in Phase 11
 - [x] `uvicorn app.main:app` serves `/api/v1/health`; DB down → 503 with envelope (verified locally 2026-11-08)
 - [x] `/api/v1/health` → `{"status":"ok","db":"ok"}` against real Postgres: `db`-marked test passed in CI (PR #1, 2026-11-08), migration 0001 applied
 - [x] `npm run dev` status page shows backend status; DB shows "Unavailable" without Postgres (verified in browser)
-- [ ] Status page shows DB green: needs a local Postgres
+- [x] Status page shows DB green (verified in the browser 2026-11-16 against the local portable Postgres)
 - [x] `ruff check`, `ruff format --check`, `pytest`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build` pass locally
 - [x] Same checks pass in GitHub Actions (PR #1: backend 11 passed / 0 skipped, frontend all green)
 
@@ -91,7 +93,8 @@ Implementation notes
   `sop:` evidence now; section text is Phase 2), a scenario `as_of` field (simulated "now"),
   `POST /scenarios/{id}/restore`, recipient-name masking for viewers, login rate limiting.
 - Passwords use Argon2id; tokens are HS256 JWTs (`JWT_SECRET`, refused in production if missing or weak).
-- Generating frontend types with openapi-typescript is deferred; types are hand-written in `features/scenarios/types.ts`.
+- Generating frontend types with openapi-typescript was deferred here and added on 2026-11-16
+  (`src/lib/api-schema.ts`, checked in CI; deployment.md §2.1a). Older screens keep hand-written types until they change.
 - Local development DB: Postgres 16.2 portable binaries (no Docker); tests use `TEST_DATABASE_URL`.
 
 ---
@@ -326,7 +329,7 @@ Implementation notes
 - **Judge is advisory, not scored.** benchmark.md §12 requires calibration against ≥ 20 hand-labelled replies
   before a judge may affect scores; that has not been done, so the result is stored and shown but never changes
   score or verdict (the scenario weights have no judge component). Off by default (`LLM_JUDGE_ENABLED`),
-  owner-triggered per run, own daily cap (`LLM_JUDGE_DAILY_CAP`, default 30), shared Gemini throttle, JSON output
+  owner-triggered per run, own daily cap (`LLM_JUDGE_DAILY_CAP`, default 4 since 2026-11-16; was 30), shared Gemini throttle, JSON output
   validated with one repair retry; invalid twice → 502 and nothing stored. Cited evidence IDs that were not in
   the judge's input are kept apart as `unknown_refs`. Re-scoring a run keeps its judge result.
 - Judge requests get 40 s (not the agent's 20 s): during a slow Gemini period two 20 s requests timed out (504).

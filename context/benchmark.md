@@ -303,6 +303,13 @@ Re-evaluating an old run with a new evaluator adds a new `evaluation_results` ro
   judge's score and uncertainty, not its rationale (which can echo the rubric). If the scenario has no rubric, a
   generic one is used. The rubric itself may describe the expected explanation; that is by design (it is the
   judging criterion), and it is never shown to the agent.
+- **Calibration procedure (2026-11-16):** `scripts/judge_calibration.py export` writes 20 distinct stored replies to
+  `data/calibration/judge_v1.csv`; the owner scores each 0–1 (tone, clarity, grounding; not safety rules);
+  `... compare` judges the labelled replies (resumable across days because of the free-tier quota) and writes
+  `data/calibration/judge_v1_results.md`. The judge may affect scores only if **all** of: ≥ 20 labelled replies,
+  mean absolute error ≤ 0.15, Spearman ≥ 0.6, Cohen's kappa ≥ 0.6 on good (≥ 0.7) vs not
+  (`app/domain/calibration.py`). Until then it stays advisory. Known limit of the first sheet: 19 of the 20
+  replies come from the templated rule-based agents, so it is narrow; add LLM replies as they accumulate.
 
 ## 13. Regression comparison rules
 
