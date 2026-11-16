@@ -6,6 +6,8 @@ import { ComparePage } from '@/features/benchmarks/ComparePage'
 import { SuiteEditorPage } from '@/features/benchmarks/SuiteEditorPage'
 import { SuiteListPage } from '@/features/benchmarks/SuiteListPage'
 import { SuiteRunPage } from '@/features/benchmarks/SuiteRunPage'
+import { DashboardPage } from '@/features/dashboard/DashboardPage'
+import { BenchmarkReportPage, ReportsPage } from '@/features/reports/ReportsPage'
 import { LoginPage } from '@/features/auth/LoginPage'
 import { RunDetailPage } from '@/features/runs/RunDetailPage'
 import { RunLauncherPage } from '@/features/runs/RunLauncherPage'
@@ -30,7 +32,10 @@ export const routes = [
       </RequireAuth>
     ),
     children: [
-      { index: true, element: <Navigate to="/scenarios" replace /> },
+      { index: true, element: <Navigate to="/dashboard" replace /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'reports', element: <ReportsPage /> },
+      { path: 'reports/:id', element: <BenchmarkReportPage /> },
       { path: 'scenarios', element: <ScenarioListPage /> },
       { path: 'scenarios/new', element: <EditorRoute mode="create" /> },
       { path: 'scenarios/:id', element: <ScenarioDetailPage /> },

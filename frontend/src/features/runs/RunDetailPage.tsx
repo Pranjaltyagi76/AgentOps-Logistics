@@ -17,6 +17,7 @@ import { FailureReportPanel } from './FailureReportPanel'
 import { JudgePanel } from './JudgePanel'
 import { RunStatusBadge } from './RunStatusBadge'
 import { TraceTimeline } from './TraceTimeline'
+import { ExportButtons } from '@/features/reports/ExportButtons'
 import type { RunDetail } from './types'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -170,7 +171,8 @@ export function RunDetailPage() {
             <span className="font-mono text-xs">{r.id}</span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {!active ? <ExportButtons path={`/reports/runs/${r.id}`} basename={`run-${r.id}`} /> : null}
           {canCancel ? (
             <Button variant="outline" size="sm" disabled={cancel.isPending || r.cancel_requested} onClick={() => void act(async () => { await cancel.mutateAsync(r.id) })}>
               <Ban aria-hidden /> Cancel run

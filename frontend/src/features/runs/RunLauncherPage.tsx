@@ -55,6 +55,10 @@ export function RunLauncherPage() {
   }
 
   if (agents.isPending || scenarios.isPending) return <Skeleton className="h-64 w-full" />
+  const loadError = agents.error ?? scenarios.error
+  if (loadError) {
+    return <Alert variant="destructive"><AlertDescription>Could not load agents or scenarios: {toApiError(loadError).message}</AlertDescription></Alert>
+  }
 
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="mx-auto flex max-w-2xl flex-col gap-6">

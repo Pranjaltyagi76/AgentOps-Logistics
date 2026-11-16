@@ -28,7 +28,7 @@ const suiteRun: SuiteRunDetail = {
   id: 'sr-1', suite_id: 'su-1', suite_name: 'mvp-10', agent_config_id: 'ag-2', agent_name: 'rule-based-v2-flawed',
   agent_version: 1, provider: 'rule_based', status: 'running', repeats: 1, total_runs: 10,
   progress: { done: 4, active: 6, completed: 4, queued: 5, running: 1 }, scenarios: [], evaluator_version: null,
-  metrics: null, flaky: [], cancel_requested: false, triggered_by_role: 'viewer',
+  metrics: null, flaky: [], cancel_requested: false, triggered_by_role: 'viewer', is_demo: false,
   created_at: '2026-11-12T05:00:00Z', started_at: '2026-11-12T05:00:01Z', finished_at: null,
   results: [
     { run_id: 'r-1', scenario_key: 'policy_refund_demand_001', scenario_version: 1, repeat_index: 0, status: 'completed',

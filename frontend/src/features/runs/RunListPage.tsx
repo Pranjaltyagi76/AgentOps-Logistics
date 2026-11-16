@@ -2,6 +2,7 @@ import { Play } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 
+import { DemoBadge } from '@/components/data-display'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -76,7 +77,7 @@ export function RunListPage() {
                           {formatDateTime(run.created_at)}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{run.scenario_key} v{run.scenario_version}</TableCell>
+                      <TableCell className="font-mono text-xs">{run.scenario_key} v{run.scenario_version}{run.is_demo ? <DemoBadge className="ml-2" /> : null}</TableCell>
                       <TableCell className="font-mono text-xs">{run.agent_name} v{run.agent_version}</TableCell>
                       <TableCell><RunStatusBadge status={run.status} /></TableCell>
                       <TableCell><VerdictBadge verdict={run.verdict} /></TableCell>

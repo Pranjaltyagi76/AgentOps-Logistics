@@ -163,6 +163,9 @@ export function SuiteListPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Suite runs</h2>
+        {runs.isError ? (
+          <Alert variant="destructive"><AlertDescription>{toApiError(runs.error).message}</AlertDescription></Alert>
+        ) : null}
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
@@ -190,6 +193,9 @@ export function SuiteListPage() {
                   <TableCell className="tabular-nums">{r.metrics ? pct(r.metrics.policy_violation_rate) : '—'}</TableCell>
                 </TableRow>
               ))}
+              {runs.isPending ? (
+                <TableRow><TableCell colSpan={7}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+              ) : null}
               {runs.data?.length === 0 ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No suite runs yet.</TableCell></TableRow>
               ) : null}

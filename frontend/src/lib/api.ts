@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios'
 
 import { getSession, setSession } from './session'
+import { watchRequest } from './slowRequests'
 
 /** Base URL of the FastAPI backend, baked in at build time. Never put secrets in VITE_* vars. */
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
@@ -79,15 +80,29 @@ export function toApiError(err: unknown): ApiError {
 
 const SESSION_ERROR_CODES = new Set(['not_authenticated', 'invalid_token', 'token_expired'])
 
+// Settles the slow-request watch started for each request (see slowRequests.ts).
+const doneWatching = new WeakMap<object, () => void>()
+
+function settle(config: object | undefined) {
+  if (!config) return
+  doneWatching.get(config)?.()
+  doneWatching.delete(config)
+}
+
 api.interceptors.request.use((config) => {
   const session = getSession()
   if (session) config.headers.set('Authorization', `Bearer ${session.token}`)
+  doneWatching.set(config, watchRequest())
   return config
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    settle(response.config)
+    return response
+  },
   (error: unknown) => {
+    if (error instanceof AxiosError) settle(error.config)
     const apiError = toApiError(error)
     // A rejected session token signs the user out; the router then shows the login page.
     if (apiError.status === 401 && SESSION_ERROR_CODES.has(apiError.code) && getSession()) {
@@ -96,3 +111,16 @@ api.interceptors.response.use(
     return Promise.reject(apiError)
   },
 )
+
+/** Downloads a report export with the session's token (a plain link would not carry it). */
+export async function downloadFile(path: string, params: Record<string, string>, filename: string) {
+  const response = await api.get<Blob>(path, { params, responseType: 'blob' })
+  const url = URL.createObjectURL(response.data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

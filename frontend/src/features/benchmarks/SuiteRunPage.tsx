@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, GitCompareArrows } from 'lucide-react'
+import { ArrowLeft, Ban, FileBarChart, GitCompareArrows } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DemoBadge } from '@/components/data-display'
 import { VerdictBadge } from '@/features/runs/VerdictBadge'
 import { toApiError } from '@/lib/api'
 import { formatDateTime, humanize } from '@/lib/format'
@@ -45,6 +46,7 @@ export function SuiteRunPage() {
             <SuiteRunStatusBadge status={r.status} />
             {r.provider === 'rule_based' ? <Badge variant="outline">Rule-based baseline</Badge> : null}
             {r.repeats > 1 ? <Badge variant="outline">{r.repeats} repeats</Badge> : null}
+            {r.is_demo ? <DemoBadge /> : null}
             <span>{formatDateTime(r.created_at)}</span>
             {r.evaluator_version ? <span className="font-mono text-xs">{r.evaluator_version}</span> : null}
           </div>
@@ -61,6 +63,11 @@ export function SuiteRunPage() {
           {r.status === 'completed' ? (
             <Button variant="outline" size="sm" asChild>
               <Link to={`/compare?candidate=${r.id}`}><GitCompareArrows aria-hidden /> Compare</Link>
+            </Button>
+          ) : null}
+          {r.status === 'completed' ? (
+            <Button variant="outline" size="sm" asChild>
+              <Link to={`/reports/${r.id}`}><FileBarChart aria-hidden /> Report</Link>
             </Button>
           ) : null}
         </div>

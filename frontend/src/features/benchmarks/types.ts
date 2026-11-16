@@ -73,6 +73,7 @@ export interface SuiteRun {
   flaky: string[]
   cancel_requested: boolean
   triggered_by_role: string
+  is_demo: boolean
   created_at: string
   started_at: string | null
   finished_at: string | null

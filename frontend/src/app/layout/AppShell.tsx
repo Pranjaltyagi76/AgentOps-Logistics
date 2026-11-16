@@ -17,6 +17,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+import { BackendWakingBanner } from './BackendWakingBanner'
+
 interface NavItem {
   label: string
   icon: LucideIcon
@@ -26,12 +28,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', icon: LayoutDashboard, phase: 9 },
+  { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' },
   { label: 'Scenarios', icon: ListChecks, to: '/scenarios' },
   { label: 'Agents', icon: Bot, to: '/agents' },
   { label: 'Runs', icon: PlayCircle, to: '/runs' },
   { label: 'Benchmarks', icon: FlaskConical, to: '/suites' },
-  { label: 'Reports', icon: FileBarChart, phase: 9 },
+  { label: 'Reports', icon: FileBarChart, to: '/reports' },
   { label: 'Settings', icon: Settings, to: '/settings' },
   { label: 'System status', icon: Activity, to: '/status' },
 ]
@@ -105,8 +107,11 @@ export function AppShell() {
         </nav>
         <SessionPanel />
       </aside>
-      <main className="flex-1 overflow-y-auto p-8">
-        <Outlet />
+      <main className="flex-1 overflow-y-auto">
+        <BackendWakingBanner />
+        <div className="p-8">
+          <Outlet />
+        </div>
       </main>
     </div>
   )
