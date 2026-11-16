@@ -45,10 +45,13 @@ class Settings(BaseSettings):
 
     data_dir: Path = DEFAULT_DATA_DIR
 
-    # Proxies in front of the app that append to X-Forwarded-For (Render: 1). The client IP is
+    # Proxies in front of the app that append to X-Forwarded-For. The client IP is
     # the entry that many places from the right, so a client cannot spoof it by sending its own
     # header. 0 (local) uses the socket peer address.
     trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
+    # A header the edge proxy sets and overwrites (e.g. cf-connecting-ip behind Cloudflare);
+    # when present it takes precedence over X-Forwarded-For.
+    client_ip_header: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,40}$")
 
     # Auth (Phase 1)
     jwt_secret: SecretStr = SecretStr(DEV_JWT_SECRET)

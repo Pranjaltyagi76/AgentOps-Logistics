@@ -1,12 +1,15 @@
 """In-memory rate limiting and a request body size limit (single instance, decision D-01)."""
 
 import json
+import logging
 import threading
 import time
 from collections import defaultdict, deque
 from typing import Any
 
 from app.core.errors import error_body
+
+logger = logging.getLogger(__name__)
 
 
 class SlidingWindowLimiter:
@@ -94,18 +97,51 @@ class _BodyTooLarge(BaseException):
     """BaseException so the app's catch-all `Exception` handler cannot turn it into a 500."""
 
 
-def client_ip(request: Any, trusted_proxy_hops: int) -> str:
-    """The caller's IP: the X-Forwarded-For entry added by the outermost trusted proxy.
+_logged_proxy_shape = False
 
-    Entries left of it were supplied by the client and are ignored. With no trusted proxies
-    (local), or a header shorter than expected, the socket peer address is used.
+
+def _forwarded(request: Any) -> list[str]:
+    raw = request.headers.get("x-forwarded-for", "")
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def describe_proxy_headers(request: Any) -> dict[str, Any]:
+    """The shape of the forwarding headers, without any address (for choosing the settings).
+
+    `<header>_at` lists the X-Forwarded-For positions (counted from the right, 1 = last)
+    holding the same value as that header, so the client's position can be read off safely.
     """
+    forwarded = _forwarded(request)
+    shape: dict[str, Any] = {"xff_entries": len(forwarded)}
+    for name in ("cf-connecting-ip", "true-client-ip", "x-real-ip"):
+        value = request.headers.get(name)
+        shape[name] = value is not None
+        if value is not None:
+            shape[f"{name}_at"] = [
+                len(forwarded) - i for i, part in enumerate(forwarded) if part == value.strip()
+            ]
+    return shape
+
+
+def client_ip(request: Any, trusted_proxy_hops: int, header: str | None = None) -> str:
+    """The caller's IP, as far as the deployment's proxies can be trusted.
+
+    1. `header` (e.g. cf-connecting-ip), when set and present: a header the edge proxy
+       overwrites, so clients cannot forge it.
+    2. Else, with `trusted_proxy_hops` > 0, the X-Forwarded-For entry that many places from
+       the right; entries left of it were supplied by the client and are ignored.
+    3. Else (local), the socket peer address.
+    """
+    global _logged_proxy_shape
+    if not _logged_proxy_shape and (header or trusted_proxy_hops):
+        _logged_proxy_shape = True
+        logger.info("Proxy header shape (first request): %s", describe_proxy_headers(request))
+    if header:
+        value = request.headers.get(header)
+        if value and value.strip():
+            return value.strip()
     if trusted_proxy_hops > 0:
-        forwarded = [
-            part.strip()
-            for part in request.headers.get("x-forwarded-for", "").split(",")
-            if part.strip()
-        ]
+        forwarded = _forwarded(request)
         if len(forwarded) >= trusted_proxy_hops:
             return forwarded[-trusted_proxy_hops]
     return request.client.host if request.client else "unknown"

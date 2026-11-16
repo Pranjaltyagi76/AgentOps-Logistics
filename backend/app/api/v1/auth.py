@@ -62,7 +62,7 @@ def login(
     settings: SettingsDep,
     db: Annotated[Session, Depends(get_db)],
 ) -> TokenOut:
-    client = client_ip(request, settings.trusted_proxy_hops)
+    client = client_ip(request, settings.trusted_proxy_hops, settings.client_ip_header)
     if not _limiter(request).allow(f"login:{client}"):
         raise AppError(
             "Too many sign-in attempts; wait a minute", code="rate_limited", status_code=429

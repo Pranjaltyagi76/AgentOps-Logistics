@@ -92,3 +92,26 @@ def test_database_urls_use_psycopg3(given: str, expected: str) -> None:
     settings = Settings(_env_file=None, database_url=given, migration_database_url=given)  # type: ignore[call-arg]
     assert settings.database_url == expected and settings.alembic_database_url == expected
     assert Settings(_env_file=None, migration_database_url="  ").migration_database_url is None  # type: ignore[call-arg]
+
+
+def test_client_ip_prefers_the_edge_header_and_shape_has_no_addresses() -> None:
+    from types import SimpleNamespace
+
+    from app.core.limits import client_ip, describe_proxy_headers
+
+    request = SimpleNamespace(
+        headers={"x-forwarded-for": "9.9.9.9, 5.5.5.5, 10.0.0.1", "cf-connecting-ip": "5.5.5.5"},
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+    assert client_ip(request, 1, "cf-connecting-ip") == "5.5.5.5"
+    assert client_ip(request, 2) == "5.5.5.5"
+    assert client_ip(request, 1, "true-client-ip") == "10.0.0.1"  # header absent: hops
+    shape = describe_proxy_headers(request)
+    assert shape == {
+        "xff_entries": 3,
+        "cf-connecting-ip": True,
+        "cf-connecting-ip_at": [2],
+        "true-client-ip": False,
+        "x-real-ip": False,
+    }
+    assert "5.5.5.5" not in str(shape) and "9.9.9.9" not in str(shape)
