@@ -124,7 +124,10 @@ def run_one(api: str, token: str, agent_name: str, timeout_s: float) -> dict[str
     if not report(status == 202, f"launch {agent_name} run", f"HTTP {status} {run}"):
         return None
     deadline = time.monotonic() + timeout_s
-    while run["status"] not in FINAL and time.monotonic() < deadline:
+    # A completed run is scored a moment later: wait for the verdict too.
+    while (
+        run["status"] not in FINAL or (run["status"] == "completed" and run.get("verdict") is None)
+    ) and time.monotonic() < deadline:
         time.sleep(2)
         _, run = get_json(f"{api}/api/v1/runs/{run['id']}", token)
     return run
