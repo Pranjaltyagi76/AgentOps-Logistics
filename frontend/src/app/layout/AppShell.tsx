@@ -32,7 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Runs', icon: PlayCircle, to: '/runs' },
   { label: 'Benchmarks', icon: FlaskConical, to: '/suites' },
   { label: 'Reports', icon: FileBarChart, phase: 9 },
-  { label: 'Settings', icon: Settings, phase: 6 },
+  { label: 'Settings', icon: Settings, to: '/settings' },
   { label: 'System status', icon: Activity, to: '/status' },
 ]
 

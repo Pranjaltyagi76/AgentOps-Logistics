@@ -12,6 +12,7 @@ import { RunLauncherPage } from '@/features/runs/RunLauncherPage'
 import { RunListPage } from '@/features/runs/RunListPage'
 import { ScenarioDetailPage } from '@/features/scenarios/ScenarioDetailPage'
 import { ScenarioListPage } from '@/features/scenarios/ScenarioListPage'
+import { SettingsPage } from '@/features/settings/SettingsPage'
 import { StatusPage } from '@/features/status/StatusPage'
 
 import { RequireAuth, RequireOwner } from './auth/guards'
@@ -46,6 +47,7 @@ export const routes = [
       { path: 'suites/:id/edit', element: <RequireOwner><SuiteEditorPage mode="edit" /></RequireOwner> },
       { path: 'suite-runs/:id', element: <SuiteRunPage /> },
       { path: 'compare', element: <ComparePage /> },
+      { path: 'settings', element: <SettingsPage /> },
       { path: 'status', element: <StatusPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
