@@ -1,7 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
-import type { ReactElement } from 'react'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { createMemoryRouter, RouterProvider, type RouteObject } from 'react-router'
 
 import { AuthProvider } from '@/app/auth/AuthProvider'
 import { createQueryClient } from '@/app/queryClient'
@@ -21,7 +20,7 @@ export function signIn(role: Role | null) {
 }
 
 /** Renders `routes` inside the real providers, starting at `path`. */
-export function renderRoutes(routes: { path: string; element: ReactElement }[], path: string) {
+export function renderRoutes(routes: RouteObject[], path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   const client = createQueryClient()
   client.setDefaultOptions({ queries: { ...client.getDefaultOptions().queries, retry: false } })

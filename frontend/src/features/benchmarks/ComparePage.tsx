@@ -86,12 +86,12 @@ export function ComparePage() {
 
       <div className="flex flex-wrap items-end gap-3">
         {(['baseline', 'candidate'] as const).map((key, i) => (
-          <div key={key} className="flex items-end gap-3">
+          <div key={key} className="flex w-full min-w-0 items-end gap-3 sm:w-auto">
             {i === 1 ? <ArrowRight className="mb-2.5 size-4 text-muted-foreground" aria-hidden /> : null}
-            <div className="flex flex-col gap-1">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
               <Label htmlFor={key} className="text-xs">{humanize(key)}</Label>
               <Select value={(key === 'baseline' ? baseline : candidate) ?? ''} onValueChange={(v) => pick(key, v)}>
-                <SelectTrigger id={key} className="w-96"><SelectValue placeholder={`Choose the ${key} suite run`} /></SelectTrigger>
+                <SelectTrigger id={key} className="w-full sm:w-96"><SelectValue placeholder={`Choose the ${key} suite run`} /></SelectTrigger>
                 <SelectContent>
                   {(runs.data ?? []).map((r) => <SelectItem key={r.id} value={r.id}>{label(r)}</SelectItem>)}
                 </SelectContent>
