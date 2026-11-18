@@ -207,8 +207,8 @@ Commit only `.env.example` files with placeholders.
    ON (`-pooler` host → `DATABASE_URL`) and OFF (direct → `MIGRATION_DATABASE_URL`). Paste them as shown
    (`postgresql://…?sslmode=require&channel_binding=require`): the settings point both at psycopg 3.
 4. SQLAlchemy engine: `pool_pre_ping=True`, small pool (`pool_size=3`, `max_overflow=2`), `pool_recycle=300`.
-5. Trace retention is documented in [system_design.md §11](system_design.md) but not built; watch storage
-   in the Neon console.
+5. Trace retention is documented in [system_design.md §11](system_design.md) but not built: on 2026-11-18 the
+   database was 11 MB (65 runs, ~12 KB of trace each), about 1 % of the free tier.
 
 ## 5. Backend (Render)
 
