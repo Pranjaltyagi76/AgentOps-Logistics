@@ -25,7 +25,7 @@
 | 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
 | 10 | RAG and expanded scenarios (30+) | ✅ done (2026-11-16) | 9 |
 | 11 | Deployment | ✅ deployed (2026-11-16); a completed live Gemini run pending (daily quota) | 10 |
-| 12 | Portfolio polish | ⬜ | 11 |
+| 12 | Portfolio polish | 🟨 in progress (video and a live Gemini result pending) | 11 |
 
 Legend: ⬜ not started · 🟨 in progress · ✅ done (acceptance verified). Update this table at the end of every phase.
 
@@ -495,6 +495,22 @@ Implementation notes
 - Finalise `context/` docs, benchmark methodology and limitations in README.
 - Record real measured results in [benchmark.md §15](benchmark.md) and [performance_review.md](performance_review.md).
 - Resume bullets only for implemented and measured features.
+
+Done (2026-11-18)
+- [x] Usable on phones: below 768 px the sidebar becomes a top bar with a slide-over menu; every page checked
+  at 375, 768 and desktop widths without sideways overflow (test for the menu)
+- [x] README rewritten around the live demo: what it does (diagram), how scoring works, results with the
+  tuning caveat, architecture, measured performance, honest limitations; MIT `LICENSE`
+- [x] Measured on production: [performance_review.md Review 5](performance_review.md) (API p95 106–142 ms end
+  to end, cold start 58 s, run p50 314 ms, 215 KB JS, Lighthouse 100/100/100); `perf_probe.py --api`
+- [x] Demo video script: [docs/demo-script.md](../docs/demo-script.md) (8 shots, 2–3 min)
+- [x] Resume bullets: written to a git-ignored local file (`private/resume_bullets.md`), measured facts only
+- [x] `context/` docs: stale "planned" wording removed
+
+Still open
+- [ ] Record the demo video (user) and link it from the README
+- [ ] A Gemini result on the live site (`llm-4`), blocked so far by the free tier's daily limit
+- [ ] Database and trace size on Neon (needs a Neon sign-in in the browser)
 
 ---
 

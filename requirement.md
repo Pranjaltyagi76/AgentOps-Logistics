@@ -191,7 +191,7 @@ agent marketplace · enterprise multi-tenancy · Kubernetes/microservices · mod
 | npm | bundled with Node | ✅ 11.16 |
 | WSL2 | required by Docker Desktop on Windows 11 Home | ❌ not installed — user installs (`wsl --install`, admin, reboot) |
 | Docker Desktop + Compose v2 | recent | ❌ not installed — user installs (`winget install -e --id Docker.DockerDesktop`) |
-| PostgreSQL 16 + pgvector | via Docker image `pgvector/pgvector:pg16`; fallback: Neon dev branch or portable binaries | ✅ Postgres 16.2 portable binaries running locally (pgvector not needed until Phase 10) |
+| PostgreSQL 16 + pgvector | via Docker image `pgvector/pgvector:pg16`; fallback: Neon dev branch or portable binaries | ✅ Postgres 16.2 portable binaries locally (pgvector 0.6.2 added in Phase 10); CI uses the Docker image |
 
 ### Accounts needed (all free)
 
@@ -199,9 +199,9 @@ agent marketplace · enterprise multi-tenancy · Kubernetes/microservices · mod
 |---|---|---|
 | GitHub | public repository + Actions CI | user |
 | Google AI Studio | `GEMINI_API_KEY` (put in `backend/.env` yourself — never in chat or Git) | user |
-| Vercel | frontend hosting | user (Phase 11) |
-| Render | backend hosting | user (Phase 11) |
-| Neon | managed Postgres | user (Phase 11, or earlier as Docker fallback) |
+| Vercel | frontend hosting | user ✅ (Phase 11: https://agentops-logistics.vercel.app) |
+| Render | backend hosting | user ✅ (Phase 11: https://agentops-api-pehy.onrender.com) |
+| Neon | managed Postgres | user ✅ (Phase 11: project `agentops-logistics`, Singapore) |
 
 ### Backend libraries (pinned in Phase 0 via lock file)
 FastAPI, Uvicorn, Pydantic v2, pydantic-settings, SQLAlchemy 2, Alembic, psycopg 3 (binary), LangGraph,

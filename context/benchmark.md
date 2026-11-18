@@ -5,7 +5,7 @@
 > and the evaluator (`eval-v2`). Any change to a formula here **must** bump the evaluator version
 > and add/adjust golden tests (PROJECT.md §24 rule 13).
 >
-> Last updated: 2026-11-12 (eval-v2: two response-check fixes found on the first Gemini runs, §8.1).
+> Last updated: 2026-11-18 (results log: production full-31 run; method unchanged since eval-v2, 2026-11-12).
 > eval-v1 was implemented in Phase 5 in `backend/app/domain/scoring.py` and `constraints.py`.
 > Rule-based baseline results are in §15.
 

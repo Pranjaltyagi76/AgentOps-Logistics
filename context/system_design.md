@@ -4,7 +4,8 @@
 > failure. Concrete modules, schemas and interfaces live in [architecture.md](architecture.md).
 > Source of truth for product scope: [../PROJECT.md](../PROJECT.md). Requirements: [../requirement.md](../requirement.md).
 >
-> Last updated: 2026-11-07 (planning; nothing implemented yet).
+> Last updated: 2026-11-18 (all phases implemented and deployed; written as the plan on 2026-11-07, decisions
+> still hold. Implementation details and deviations are in architecture.md and the roadmap notes).
 
 ---
 

@@ -110,6 +110,7 @@ Actions:            <issues created / fixes made>
 | 2 | 2026-11-12 | 6 | local + Gemini free tier (`gemini-3.5-flash`) | First Gemini runs: ~11 s, ~15k input tokens per run; one slow-provider episode; see Review 2 |
 | 3 | 2026-11-12 | 8 | local + Gemini free tier | Rule-based suites in 3–7 s; Gemini suite blocked by overload and a 20-requests-per-day free quota; see Review 3 |
 | 4 | 2026-11-16 | 8 (follow-up) | local + Gemini free tier | `llm-4` Gemini suite: calls took 15–39 s, all 4 runs failed on provider timeouts; see Review 4 |
+| 5 | 2026-11-16 → 18 | 11–12 | **production**: Render free (Docker, 0.1 CPU, Singapore) + Neon free (Singapore), client in India | API p95 106–142 ms incl. ~95 ms network; cold start 58–63 s; run p50 314 ms; Lighthouse 100/100/100; see Review 5 |
 
 ### Review 1 — 2026-11-10 — after Phase 4
 Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
@@ -198,6 +199,40 @@ Actions:            `httpx2` timeouts and transport errors now map to `provider_
                     the time limits (raising them would make slow-provider days look like slow agents). Gemini
                     benchmark results stay pending until a day with normal latency; check the Settings page for
                     remaining quota before launching.
+
+### Review 5 — 2026-11-16 to 2026-11-18 — production (Phases 11–12)
+Git SHA:            fd2be21 (API figures, 2026-11-18), 02660c8 (frontend)
+Environment:        Render free web service (Docker, 0.1 CPU, 512 MB, Singapore) + Neon free Postgres 16
+                    (Singapore); client: Windows laptop in India over home broadband. Frontend on Vercel Hobby.
+Dataset:            31 scenarios, ~95 runs (20 labelled demo runs, 2 suite runs of 31, smoke and probe runs)
+Method:             `python scripts/perf_probe.py --api <url> --samples 20 --runs 5` (one kept-alive HTTPS
+                    connection, client-side timings, so every figure includes the network round trip, roughly
+                    the health p50 of ~97 ms; run latency
+                    is the server-recorded `latency_ms`); cold start = first `/health` after ≥ 15 min idle
+                    (curl); Lighthouse 12 desktop preset on the production build served locally (the live site
+                    sits behind Vercel's bot checkpoint, which headless browsers hit).
+
+| Metric | Target | Measured | Status |
+|---|---|---|---|
+| `GET /health` p95 | ≤ 100 ms | 113.5 ms end to end (p50 96.7 ms) | the budget is server-side; end to end it is over by ~14 ms, almost all of it the India → Singapore round trip (no server timing was recorded) |
+| List scenarios / runs p95 | ≤ 300 ms | 115.3 / 106.1 ms | met |
+| `GET /runs/{id}` p95 (poll) | ≤ 150 ms | 137.5 ms | met |
+| `GET /runs/{id}/trace` p95 | ≤ 500 ms | 130.9 ms | met |
+| `GET /dashboard/summary` p95 | ≤ 800 ms | 141.8 ms | met |
+| Suite report CSV (31 runs) p95 | ≤ 2 s | 1.33 s (p50 0.94 s) | met |
+| Rule-based single run | ≤ 2 s | p50 314 ms, max 521 ms (n = 5); full-31 suite mean 0.84 s, p95 1.40 s | met |
+| Rule-based 31-run suite | ≤ 30 s (for 10) | finished in under a minute on 0.1 CPU (2 at a time) | met (scaled) |
+| Cold start | measure only | 63 s (seeding before the server) → 58 s (seeding in the background); Render's own wake is ~50 s | measured |
+| Backend memory | ≤ 400 MB | not available (Render shows no metrics on the free plan); no restarts or OOM events during deploys and a 31-run suite | not measured |
+| Frontend initial JS | ≤ 300 KB gzip | 215.1 KB | met |
+| Lighthouse desktop (login page) | perf ≥ 85, a11y ≥ 90 | 100 / 100 / 100 (perf, a11y, best practices); FCP = LCP = 0.5 s, TBT 0 ms, CLS 0 | met |
+| DB storage, trace size per run | ≤ 50 % of free tier; ≤ 250 KB | DB_SIZE_PENDING | DB_STATUS_PENDING |
+
+Findings:           every warm API budget is met; end to end, distance (India → Singapore) dominates. Cold starts are
+                    dominated by the free instance's own wake-up; moving seeding behind the server start saved ~5 s.
+                    Production runs are ~3× slower than locally (0.1 CPU) and still far inside budget.
+Actions:            seeding moved to the background (Phase 11); the waking banner covers the minute; no keep-alive
+                    pinging (deployment.md §5). Memory stays unmeasured until a paid plan or an in-app RSS readout.
 
 ## 8. Known hotspots and optimisation playbook
 
