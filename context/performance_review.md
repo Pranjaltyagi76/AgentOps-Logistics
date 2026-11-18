@@ -110,7 +110,7 @@ Actions:            <issues created / fixes made>
 | 2 | 2026-11-12 | 6 | local + Gemini free tier (`gemini-3.5-flash`) | First Gemini runs: ~11 s, ~15k input tokens per run; one slow-provider episode; see Review 2 |
 | 3 | 2026-11-12 | 8 | local + Gemini free tier | Rule-based suites in 3–7 s; Gemini suite blocked by overload and a 20-requests-per-day free quota; see Review 3 |
 | 4 | 2026-11-16 | 8 (follow-up) | local + Gemini free tier | `llm-4` Gemini suite: calls took 15–39 s, all 4 runs failed on provider timeouts; see Review 4 |
-| 5 | 2026-11-16 → 18 | 11–12 | **production**: Render free (Docker, 0.1 CPU, Singapore) + Neon free (Singapore), client in India | API p95 106–142 ms incl. ~95 ms network; cold start 58–63 s; run p50 314 ms; Lighthouse 100/100/100; see Review 5 |
+| 5 | 2026-11-16 → 18 | 11–12 | **production**: Render free (Docker, 0.1 CPU, Singapore) + Neon free (Singapore), client in India | API p95 106–142 ms end to end (mostly network); cold start 58–63 s; run p50 314 ms; 11 MB DB; Lighthouse 100/100/100; see Review 5 |
 
 ### Review 1 — 2026-11-10 — after Phase 4
 Git SHA:            d4611b3 + Phase 4 working tree (committed right after this review)
@@ -204,7 +204,7 @@ Actions:            `httpx2` timeouts and transport errors now map to `provider_
 Git SHA:            fd2be21 (API figures, 2026-11-18), 02660c8 (frontend)
 Environment:        Render free web service (Docker, 0.1 CPU, 512 MB, Singapore) + Neon free Postgres 16
                     (Singapore); client: Windows laptop in India over home broadband. Frontend on Vercel Hobby.
-Dataset:            31 scenarios, ~95 runs (20 labelled demo runs, 2 suite runs of 31, smoke and probe runs)
+Dataset:            31 scenarios, 65 runs on 2026-11-18 (20 labelled demo runs, suite runs, smoke and probe runs)
 Method:             `python scripts/perf_probe.py --api <url> --samples 20 --runs 5` (one kept-alive HTTPS
                     connection, client-side timings, so every figure includes the network round trip, roughly
                     the health p50 of ~97 ms; run latency
@@ -227,7 +227,7 @@ Method:             `python scripts/perf_probe.py --api <url> --samples 20 --run
 | Frontend initial JS | ≤ 300 KB gzip | 215.1 KB | met |
 | Lighthouse desktop (login page) | perf ≥ 85, a11y ≥ 90 | 100 / 100 / 100 (perf, a11y, best practices); FCP = LCP = 0.5 s, TBT 0 ms, CLS 0 | met |
 | Gemini run (production, 2026-11-18) | p50 ≤ 20 s, hard limit 90 s | 62 s for the one finished run (3 calls, ~20 s each); 2 runs hit the 20 s request deadline, 1 the daily quota | over: free-tier latency |
-| DB storage, trace size per run | ≤ 50 % of free tier; ≤ 250 KB | DB_SIZE_PENDING | DB_STATUS_PENDING |
+| DB storage, trace size per run | ≤ 50 % of free tier; ≤ 250 KB | 11 MB of Neon's 1 GB (~1 %), 65 runs, 834 trace events (table 1.08 MB); trace per run 12.0 KB mean, 15.1 KB max (`pg_column_size`, Neon SQL editor, 2026-11-18) | met: at this size trace retention is not needed |
 
 Findings:           every warm API budget is met; end to end, distance (India → Singapore) dominates. Cold starts are
                     dominated by the free instance's own wake-up; moving seeding behind the server start saved ~5 s.
