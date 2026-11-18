@@ -25,7 +25,7 @@
 | 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
 | 10 | RAG and expanded scenarios (30+) | ✅ done (2026-11-16) | 9 |
 | 11 | Deployment | ✅ done (2026-11-16; live Gemini run 2026-11-18) | 10 |
-| 12 | Portfolio polish | 🟨 all but the demo video (user records it) | 11 |
+| 12 | Portfolio polish | ✅ done (2026-11-18; demo video skipped, script kept) | 11 |
 
 Legend: ⬜ not started · 🟨 in progress · ✅ done (acceptance verified). Update this table at the end of every phase.
 
@@ -508,7 +508,8 @@ Done (2026-11-18)
 - [x] `context/` docs: stale "planned" wording removed
 
 Still open
-- [ ] Record the demo video (user) and link it from the README
+- [ ] ~~Record the demo video~~: skipped by decision (2026-11-18); [docs/demo-script.md](../docs/demo-script.md)
+  stays for later
 - [x] A Gemini result on the live site: `llm-4` suite run `92000c81` (2026-11-18): 1 PASS (93.3), 3 platform errors
   (2 × 504 deadline, 1 × daily quota). Also closes Phase 11's "owner can run Gemini within cap"
 - [x] Database and trace size on Neon: 11 MB (~1 % of the free tier), 12 KB of trace per run (budget 250 KB)
