@@ -33,3 +33,6 @@ Thumbs.db
 # --- Local tooling ---
 .claude/settings.local.json
 .claude/launch.json
+
+# --- Personal notes (never commit) ---
+private/
