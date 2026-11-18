@@ -79,11 +79,11 @@ Real, persisted runs (details and run IDs: [benchmark.md §15](context/benchmark
 | `rule-based-v1` | full-31, production | **31/31 PASS**, score 100 | p95 run latency 1.4 s on the free tier |
 | `rule-based-v1` | full-31, hybrid retrieval | 31/31 PASS | same top SOP section in 29/29 searches |
 | `rule-based-v2-flawed` | full-31 | 4 PASS, 6 FAIL, **21 FAILED_POLICY** | its designed flaws trip the safety gates; never searches SOPs |
-| `gemini-flash-v1` | — | **no usable result yet** | free-tier attempts ended in Google overload or the 20-requests-per-day limit; recorded as platform errors |
+| `gemini-flash-v1` | llm-4, production | **1 PASS (93.3)**, 3 platform errors | the only run that finished passed; the others hit Gemini 504 deadlines (~20 s per call) and the free tier's daily quota. One scored run is not a benchmark |
 
 The rule-based agents were written by the same author as the scenarios and tuned to them (v1 passed 18/31
 before it was extended for the new scenarios): they prove the platform works end to end, not that an agent
-is capable. The interesting comparison is an LLM agent, which the free quota has not allowed yet.
+is capable. The interesting comparison is an LLM agent; on the free tier it has produced one scored run so far.
 
 ## Architecture
 
@@ -178,7 +178,7 @@ render.yaml     Render Blueprint for the backend
 - Everything is synthetic: scenarios, shipments, carriers, SOPs and tools; "write" actions are simulated.
 - The 31 scenarios and 12 SOPs were written by one author and reflect their assumptions about logistics
   support. 31 scenarios is small: a difference of one or two is not statistically meaningful.
-- The rule-based agents are tuned to these scenarios; no LLM benchmark result exists yet (free-tier quota).
+- The rule-based agents are tuned to these scenarios; the LLM agent has one scored run (free-tier latency and quota).
 - Response checks are keyword/regex heuristics with known blind spots (pinned by tests).
 - The optional LLM judge is uncalibrated and from the same model family as the Gemini agent; it is advisory.
 - Free hosting: about a minute to wake, 0.1 CPU, daily Gemini caps.

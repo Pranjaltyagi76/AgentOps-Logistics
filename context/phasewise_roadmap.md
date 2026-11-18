@@ -24,8 +24,8 @@
 | 8 | Benchmark suites and regression | ✅ done (2026-11-12) | 7 |
 | 9 | Dashboard and reports | ✅ done (2026-11-16) | 8 |
 | 10 | RAG and expanded scenarios (30+) | ✅ done (2026-11-16) | 9 |
-| 11 | Deployment | ✅ deployed (2026-11-16); a completed live Gemini run pending (daily quota) | 10 |
-| 12 | Portfolio polish | 🟨 in progress (video and a live Gemini result pending) | 11 |
+| 11 | Deployment | ✅ done (2026-11-16; live Gemini run 2026-11-18) | 10 |
+| 12 | Portfolio polish | 🟨 in progress (demo video and Neon sizes pending) | 11 |
 
 Legend: ⬜ not started · 🟨 in progress · ✅ done (acceptance verified). Update this table at the end of every phase.
 
@@ -464,11 +464,11 @@ Implementation notes
 Follow [deployment.md](deployment.md): Neon DB → Render backend → Vercel frontend → secrets/CORS → migrations + seed → smoke test → checklist.
 
 Acceptance
-- [ ] Public URL works end-to-end (viewer can run rule-based benchmark; owner can run Gemini within cap):
+- [x] Public URL works end-to-end (viewer can run rule-based benchmark; owner can run Gemini within cap):
   viewer part done (https://agentops-logistics.vercel.app: demo login, full-31 suite launched from the UI,
   31/31 PASS, suite run `8ba68b55`); owner signed in and launched a Gemini run within the cap, which Google
   refused with its free-tier daily limit (429; run `5b169a3a`, recorded as a platform error with a clear
-  message). A completed live Gemini run is still to do
+  message); on 2026-11-18 the `llm-4` suite ran as owner: 1 PASS, 3 platform errors (suite run `92000c81`)
 - [x] Deployment checklist (deployment.md §9) fully ticked; no secrets in Git or bundle: every PROJECT.md item
   ticked; bundle scanned (no secret values), `.env` git-ignored and outside the Docker build context
 
@@ -509,7 +509,8 @@ Done (2026-11-18)
 
 Still open
 - [ ] Record the demo video (user) and link it from the README
-- [ ] A Gemini result on the live site (`llm-4`), blocked so far by the free tier's daily limit
+- [x] A Gemini result on the live site: `llm-4` suite run `92000c81` (2026-11-18): 1 PASS (93.3), 3 platform errors
+  (2 × 504 deadline, 1 × daily quota). Also closes Phase 11's "owner can run Gemini within cap"
 - [ ] Database and trace size on Neon (needs a Neon sign-in in the browser)
 
 ---

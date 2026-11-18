@@ -226,6 +226,7 @@ Method:             `python scripts/perf_probe.py --api <url> --samples 20 --run
 | Backend memory | ≤ 400 MB | not available (Render shows no metrics on the free plan); no restarts or OOM events during deploys and a 31-run suite | not measured |
 | Frontend initial JS | ≤ 300 KB gzip | 215.1 KB | met |
 | Lighthouse desktop (login page) | perf ≥ 85, a11y ≥ 90 | 100 / 100 / 100 (perf, a11y, best practices); FCP = LCP = 0.5 s, TBT 0 ms, CLS 0 | met |
+| Gemini run (production, 2026-11-18) | p50 ≤ 20 s, hard limit 90 s | 62 s for the one finished run (3 calls, ~20 s each); 2 runs hit the 20 s request deadline, 1 the daily quota | over: free-tier latency |
 | DB storage, trace size per run | ≤ 50 % of free tier; ≤ 250 KB | DB_SIZE_PENDING | DB_STATUS_PENDING |
 
 Findings:           every warm API budget is met; end to end, distance (India → Singapore) dominates. Cold starts are

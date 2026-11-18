@@ -289,7 +289,7 @@ Checked on 2026-11-16 against the live URLs in §0.
 - [x] run limits, daily LLM cap and timeouts configured (`LLM_DAILY_RUN_CAP=4`, `LLM_JUDGE_DAILY_CAP=4`,
   `MAX_CONCURRENT_RUNS=2`, defaults otherwise)
 - [x] demo login and owner login work (owner signed in on the live site; owner-only actions shown)
-- [ ] one Gemini run completes on the live site: launched as owner within the cap (run
+- [x] one Gemini run completes on the live site (2026-11-18, `llm-4` suite run `92000c81`: `delay_hub_congestion_001` PASS 93.3). Earlier attempt: launched as owner within the cap (run
   `5b169a3a-4136-43fd-a3a4-225f1c9a3a83`), but Google answered 429 "generate requests per day limit exceeded"
   (20/day, the key's quota already used that day). The app recorded it as a platform error
   (`provider_quota`, verdict ERROR, not counted against the agent) and showed "Gemini quota reached… Try again
